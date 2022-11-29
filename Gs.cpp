@@ -30,10 +30,13 @@ int main(int argc, char *argv[])
 void readInput(int argc, char *argv[]){
     verbose = 0;
 
+
     
 }
 
-void initGSUDP(){}
+void initGSUDP(){
+    
+}
 
 void initGSTCP(){}
 
@@ -43,5 +46,4 @@ void initDB(){
         mkdir("USERS", 0777);
     else
         closedir(dir);
-
 }
