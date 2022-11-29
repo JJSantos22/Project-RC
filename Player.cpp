@@ -3,42 +3,66 @@
 #include <stdio.h>
 #include <sys/socket.h>
 
+using namespace std;
+
+#include <utils.h>
+
 #define GN 60
 #define PORT 58000
 
-int plid;
+int plid; 
 int error;
 int attempt;
 
 void initUDP();
 void initTCP();
-
-void readverifyinput(char *f);
+void start();
+void play();
+void guess();
+void hint();
+void state();
+void quit();
+void exit();
 
 int main(){
     char *f;
     while (1){
         readverifyinput(f);
-        switch (*f){
-            case ('start' or 'sg'):
-                start();
-                break;
-            case ('play' or 'pl'):
-                play();
-                break;
+        if (strcmp(f,"start") == 0|| strcmp(f,"sg") == 0){
+            start();
+        }
+        else if (strcmp(f,"play") == 0 || strcmp(f,"pl") == 0){
+            play();
+        }
+        else if (strcmp(f,"guess") == 0 || strcmp(f,"gw") == 0){
+            guess();
+        }
+        else if (strcmp(f,"hint") == 0 || strcmp(f,"h") == 0){
+            hint();
+        }
+        else if (strcmp(f,"state") == 0 || strcmp(f,"st") == 0){
+            state();
+        }
+        else if (strcmp(f,"quit") == 0){
+            quit();
+        }
+        else if (strcmp(f,"exit") == 0){
+            exit();
+        }
+        else {
+            /*gerar erro por input errado*/
         }
     }
-    
 }
 
 void start(){
     char *splid;
     sscanf(splid, "%s", stdin);
-    if (strlen(splid)!=6){
+    if (strlen(splid)!=6 && validPLID(splid)){
         /*gerar erro*/
     }
     initUDP();
-    
+    initTCP();
 
     
     attempt = 0;
@@ -100,7 +124,7 @@ void state(){
 
 void quit(){
     /*recebe quit do input
-    
+
     envia por UDP uma mensagem
     
     fecha as conexões TCP*/
@@ -108,16 +132,9 @@ void quit(){
 
 void exit(){
     /*recebe exit do input
-
-    /*cona */
     
     envia por UDP uma mensagem
     
     fecha as conexões TCP*/
 }
 
-void readverifyinput(char *f){
-    if (sscanf(f, "%s", stdin)!=1){
-        /*gerar erro*/
-    }
-};
