@@ -108,6 +108,8 @@ void quit(){
 
 void exit(){
     /*recebe exit do input
+
+    /*cona */
     
     envia por UDP uma mensagem
     
