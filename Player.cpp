@@ -2,17 +2,22 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <netdb.h>
 
 using namespace std;
 
-#include <utils.h>
+#include "utils.h"
 
 #define GN 60
-#define PORT 58000
+#define PORT "58000"
 
 int plid; 
 int error;
 int attempt;
+
+struct addrinfo hints,*res;
+int fd,errcode;
 
 void initUDP();
 void initTCP();
@@ -26,6 +31,18 @@ void exit();
 
 int main(){
     char *f;
+    fd=socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd==-1)
+        exit(1);
+    memset(&hint,0,sizeof hints);
+    hints.ai_family=AF_INET;
+    hints.ai_socktype=SOCK_DGRAM;
+
+    errcode = getaddrinfo("tejo.tecnico.ulisboa.pt", PORT, &hints, &res);
+    if (errcode!=0)
+        exit(1);
+
+        
     while (1){
         readverifyinput(f);
         if (strcmp(f,"start") == 0|| strcmp(f,"sg") == 0){

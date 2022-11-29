@@ -4,6 +4,8 @@
 
 using namespace std;
 
+#include "utils.h"
+
 bool validPLID(char *string)
 {
     int a = strspn(string, "0123456789");
