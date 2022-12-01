@@ -8,10 +8,11 @@
 #include <sys/stat.h>
 
 #define GN 60
-#define GSport 58000
+#define PORT 58000
 
 //Global Variables
 int verbose;
+char *GSport;
 
 void readInput(int argc, char *argv[]);
 void initGSUDP();
@@ -28,7 +29,16 @@ int main(int argc, char *argv[])
 }
 
 void readInput(int argc, char *argv[]){
+    int e=1;
     verbose = 0;
+
+    while (e < argc){
+        if (strcmp(argv[e], "-p") == 0){
+            GSport = (char *) malloc(6 * sizeof(char));
+            strcpy(GSport, argv[e + 1]); //atenção!! a rever
+        }
+    }
+
 
 
     

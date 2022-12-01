@@ -15,10 +15,12 @@ using namespace std;
 int plid; 
 int error;
 int attempt;
+char* GSip;
 
 struct addrinfo hints,*res;
 int fd,errcode;
 
+void readInput(int argc, char* argv[]);
 void initUDP();
 void initTCP();
 void start();
@@ -34,6 +36,8 @@ int main(){
     fd=socket(AF_INET, SOCK_DGRAM, 0);
     if (fd==-1)
         exit(1);
+
+
     memset(&hint,0,sizeof hints);
     hints.ai_family=AF_INET;
     hints.ai_socktype=SOCK_DGRAM;
@@ -42,9 +46,9 @@ int main(){
     if (errcode!=0)
         exit(1);
 
-        
+
     while (1){
-        readverifyinput(f);
+        f = strtok(NULL, " \n"); //tem de vir de fgets do stdin
         if (strcmp(f,"start") == 0|| strcmp(f,"sg") == 0){
             start();
         }
@@ -73,8 +77,7 @@ int main(){
 }
 
 void start(){
-    char *splid;
-    sscanf(splid, "%s", stdin);
+    char* splid = strtok(NULL, " \n");
     if (strlen(splid)!=6 && validPLID(splid)){
         /*gerar erro*/
     }
@@ -155,3 +158,14 @@ void exit(){
     fecha as conexões TCP*/
 }
 
+void readInput(int argc, char *argv[]){
+    for (int e = 1; e < argc; e++) {
+        if (argv[e][0] == '-'){
+            if (argv[e][1] == 'n'){
+                strcpy(GSip, argv[e+1]);
+            }
+        }
+        else
+            printf("\nWrong format in: %s (input argument)\n", argv[e]);
+    }
+}

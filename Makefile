@@ -1,6 +1,6 @@
-project: Gs player
+project: Gs Player
 
-player:
+Player:
 		g++ -o Player.o Player.cpp
 		
 Gs:
