@@ -49,3 +49,17 @@ int get_max_errors(char *word){
 
     return max_errors;
 }
+
+char* create_string(char* p){
+
+    char* string = (char*)malloc((strlen(p)+1)*sizeof(char));
+    if (string == NULL){
+        perror("Error: ");
+        exit(1);
+    }
+    strcpy(string, p);
+    return string;
+    
+    
+
+}

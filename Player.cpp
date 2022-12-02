@@ -10,17 +10,22 @@ using namespace std;
 #include "utils.h"
 
 #define GN 60
-#define PORT "58000"
+#define PORT "58011"
 
 int plid; 
 int error;
 int attempt;
-char* GSip;
+char* GSip; 
+char* GSport;
+struct sockaddr_in addr;
+char buffer[128];
+socklen_t addrlen;
+
 
 struct addrinfo hints,*res;
 int fd,errcode;
 
-void readInput(int argc, char* argv[]);
+void readStartingInput(int argc, char* argv[]);
 void initUDP();
 void initTCP();
 void start();
@@ -31,21 +36,11 @@ void state();
 void quit();
 void exit();
 
-int main(){
+int main(int argc, char* argv[]){
     char *f;
-    fd=socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd==-1)
-        exit(1);
-
-
-    memset(&hint,0,sizeof hints);
-    hints.ai_family=AF_INET;
-    hints.ai_socktype=SOCK_DGRAM;
-
-    errcode = getaddrinfo("tejo.tecnico.ulisboa.pt", PORT, &hints, &res);
-    if (errcode!=0)
-        exit(1);
-
+    readStartingInput(argc, argv);
+    initUDP();
+    initTCP();
 
     while (1){
         f = strtok(NULL, " \n"); //tem de vir de fgets do stdin
@@ -77,12 +72,19 @@ int main(){
 }
 
 void start(){
+    ssize_t n;
+    int num;
+    char msg[10];
     char* splid = strtok(NULL, " \n");
     if (strlen(splid)!=6 && validPLID(splid)){
         /*gerar erro*/
     }
-    initUDP();
-    initTCP();
+    num = sprintf(msg, "SNG %s\n", splid);
+    n = sendto(fd, msg, num, 0, (struct sockaddr*)res->ai_addr, res->ai_addrlen);
+    if (n==-1)
+        exit(1); //gerar erro
+    
+
 
     
     attempt = 0;
@@ -158,14 +160,47 @@ void exit(){
     fecha as conexões TCP*/
 }
 
-void readInput(int argc, char *argv[]){
+void readStartingInput(int argc, char *argv[]){
     for (int e = 1; e < argc; e++) {
         if (argv[e][0] == '-'){
             if (argv[e][1] == 'n'){
-                strcpy(GSip, argv[e+1]);
+                strcpy(GSip, create_string(argv[e+1]));
+                e++;
+            }
+            else if (argv[e][1] == 'p'){
+                strcpy(GSport, create_string(argv[e+1]));
+                e++;
             }
         }
         else
             printf("\nWrong format in: %s (input argument)\n", argv[e]);
     }
+    //if (GSip == NULL){
+        //GSip=create_string(getaddrinfo(NULL, NULL, NULL, NULL)); //rever se calhar usar gethostname
+    //    GSip = NULL;
+    //}
+    //if (GSport == NULL)
+        //GSport=create_string(getaddrinfo(NULL, NULL, NULL, NULL)); //rever 
+     //   GSport = NULL;
+    
+
+}
+void initUDP(){
+    fd=socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd==-1)
+        exit(1);
+
+
+    memset(&hint,0,sizeof hints);
+    hints.ai_family=AF_INET;
+    hints.ai_socktype=SOCK_DGRAM;
+
+    errcode = getaddrinfo("tejo.tecnico.ulisboa.pt", PORT, &hints, &res);
+    if (errcode!=0)
+        exit(1);
+
+}
+
+void initTCP(){
+
 }
