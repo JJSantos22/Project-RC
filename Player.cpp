@@ -191,7 +191,7 @@ void initUDP(){
         exit(1);
 
 
-    memset(&hint,0,sizeof hints);
+    memset((void *)&hint,0,sizeof hints);
     hints.ai_family=AF_INET;
     hints.ai_socktype=SOCK_DGRAM;
 
@@ -203,4 +203,22 @@ void initUDP(){
 
 void initTCP(){
 
+}
+
+bool validPLID(char *string)
+{
+    int a = strspn(string, "0123456789");
+    if (a==strlen(string))
+        return true;
+    return false;
+}
+
+char* create_string(char* p){
+    char* string = (char*)malloc((strlen(p)+1)*sizeof(char));
+    if (string == NULL){
+        perror("Error: ");
+        exit(1);
+    }
+    strcpy(string, p);
+    return string;
 }

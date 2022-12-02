@@ -6,7 +6,6 @@
 #include <string.h>
 
 bool validPLID(char *string);
-void readverifyinput(char *f);
 int count_digit(int n);
 int get_max_errors(char *word);
 char* create_string(char* p);

@@ -14,12 +14,6 @@ bool validPLID(char *string)
     return false;
 }
 
-void readverifyinput(char *f){
-    if (sscanf(f, "%s", stdin)!=1){
-        /*gerar erro*/
-    }
-}
-
 /*funÇão que retorna o número de digitos */
 int count_digit(int n){
     int count;
@@ -34,15 +28,12 @@ int get_max_errors(char *word){
 
     int max_errors;
 
-    if (strlen(word) >= 3 && strlen(word) <= 6){
+    if (strlen(word) >= 3 && strlen(word) <= 6)
         max_errors = 7;
-    }
-    else if (strlen(word) > 6 && strlen(word) <= 11 ) {
+    else if (strlen(word) > 6 && strlen(word) <= 11 ) 
         max_errors = 8;
-    }
-    else if (strlen(word) > 11 && strlen(word) <= 30 ) {
+    else if (strlen(word) > 11 && strlen(word) <= 30 ) 
         max_errors = 9;
-    }
     else {
         /*gera erro*/
     }
@@ -51,7 +42,6 @@ int get_max_errors(char *word){
 }
 
 char* create_string(char* p){
-
     char* string = (char*)malloc((strlen(p)+1)*sizeof(char));
     if (string == NULL){
         perror("Error: ");
@@ -59,7 +49,4 @@ char* create_string(char* p){
     }
     strcpy(string, p);
     return string;
-    
-    
-
 }
