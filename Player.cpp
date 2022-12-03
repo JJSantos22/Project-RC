@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <netdb.h>
 #include <iostream>
+#include <ctype.h>
 
 using namespace std;
 
@@ -13,7 +14,9 @@ using namespace std;
 #define GN 60
 #define PORT "58011"
 
-char* plid;  //Verificar necessidade
+char* plid;                     //Verificar necessidade
+int word_len;
+int max_errors;
 int error;
 int attempt;
 char* GSip; 
@@ -80,7 +83,7 @@ int main(int argc, char* argv[]){
 
 void start(){
     ssize_t n;
-    int num, val;
+    int num;
     char msg[11];
     char* splid = strtok(NULL, " \n");
     if (strtok(NULL, " \n")!=NULL || splid==NULL){                     //Invalid input format
@@ -112,18 +115,32 @@ void start(){
     printf("New game started (max errors) errors: (nºde letras com underscores)");
 
     */
-    val=6;
-    char* l = (char *)malloc(val*sizeof(char));
-    for (int i=0; i < val; i++)
-        l[i] = '_';
-    printf("New game started (max errors) errors: %s\n",l);
-    plid = splid;
+    word_len=6; //ALTERAR!! nº de letras a receber do server
+    max_errors=4; //ALTERAR!! nº maximo de erros
+    char* l = (char *)malloc(2*word_len*sizeof(char));
+    for (int i=0; i < word_len; i++){
+        l[2*i] = '_';
+        l[2*i+1] = ' ';
+    }
+    printf("New game started (max %d errors): %s\n", max_errors, l);
+    plid = create_string(splid);
     free(l);
-    return;
 
 }
 
-void play(){
+void play(){    //no server se for letra igual 
+    ssize_t n;
+    int num;
+    char msg[15];
+    char* letter = strtok(NULL, " \n");
+    char* val;
+    if (strtok(NULL, " \n")!=NULL || strlen(letter)!=1 || !validAlpha(letter, 1)){                     //Invalid input format
+        cout << "Invalid input format" << endl;
+        return;
+    }
+    attempt++;
+    num = sprintf(msg, "PLG %s %s %d\n", plid, letter, attempt);
+    printf("sending: %s\n", msg);
     /*recebe play ou pl e recebe uma letra(nota: case insensitive) do input
     
     envia por UDP "PLG plid (letra escolhida) (tentativa)\n"
@@ -134,9 +151,42 @@ void play(){
     or
     printf("No, "(letra)" is not part of the word")
     */
+    attempt = attempt; //attempt = server attempt
+    //if (gameover) win();
+
+
+    //verificar o estado (OK, WIN, DUP, NOK, OVR, INV, ERR)
+    //Se for OK , metemos nas posições recebidas, a letra correta
+    char* l = (char *)malloc(2*word_len*sizeof(char));
+    for (int i=0; i < word_len; i++){
+        l[2*i] = '_';
+        l[2*i+1] = ' ';
+    }
+    /* while (val != NULL){
+        l[2*atoi(val)] = *letter;
+        l[2*atoi(val)+1] = ' ';
+    } */
+    printf("Yes,\"%s\" is part of the word: %s\n", letter, l);
+    free(l);
+    //free(val);
+
+    
+    
+
 }
 
 void guess(){
+    ssize_t n;
+    int num;
+    char msg[14+word_len];
+    char* word = strtok(NULL, " \n");
+    if (strtok(NULL, " \n")!=NULL || word==NULL || !validAlpha(word, strlen(word))){                     //Invalid input format
+        cout << "Invalid input format" << endl;
+        return;
+    }
+    attempt++;
+    num = sprintf(msg, "PWG %s %s %d\n", plid, word, attempt);
+    printf("sending: %s\n", msg);
     /*recebe guess ou gw e recebe uma palavra(nota: case insensitive) do input
     
     envia por UDP "PWG plid (palavra) (tentativa)\n"
@@ -235,6 +285,15 @@ bool validPLID(char *string)
     if (a==strlen(string))
         return true;
     return false;
+}
+
+bool validAlpha(char *string, size_t n)
+{
+    size_t a = strspn(string, "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz");
+    if (a!=n){
+        return false;
+    }
+    return true;
 }
 
 char* create_string(char* p){
