@@ -13,7 +13,7 @@ using namespace std;
 #define GN 60
 #define PORT "58011"
 
-int plid; 
+char* plid;  //Verificar necessidade
 int error;
 int attempt;
 char* GSip; 
@@ -72,28 +72,32 @@ int main(int argc, char* argv[]){
             exit();
         }
         else {
-            /*gerar erro por input errado*/
+            cout << "Wrong input format" << endl;
+            fflush(stdin);
         }
     }
 }
 
 void start(){
     ssize_t n;
-    int num;
-    char msg[10];
+    int num, val;
+    char msg[11];
     char* splid = strtok(NULL, " \n");
-    if (strtok(NULL, " \n")!=NULL){                     //Invalid input format
+    if (strtok(NULL, " \n")!=NULL || splid==NULL){                     //Invalid input format
         cout << "Invalid input format" << endl;
+        return;
     }
     if (strlen(splid)!=6 || !validPLID(splid)){ 
         cout << "Invalid ID" << endl;
+        return;
     }
     num = sprintf(msg, "SNG %s\n", splid);
+    printf("sending: %s\n", msg);
     //n = sendto(fd, msg, num, 0, (struct sockaddr*)res->ai_addr, res->ai_addrlen);
-    if (n==-1){
+    /* if (n==-1){
         cout << "Unable to send from user to server" << endl;
-        exit(1); //gerar erro
-    }
+        exit(1); 
+    } */
 
 
     
@@ -108,6 +112,15 @@ void start(){
     printf("New game started (max errors) errors: (nºde letras com underscores)");
 
     */
+    val=6;
+    char* l = (char *)malloc(val*sizeof(char));
+    for (int i=0; i < val; i++)
+        l[i] = '_';
+    printf("New game started (max errors) errors: %s\n",l);
+    plid = splid;
+    free(l);
+    return;
+
 }
 
 void play(){
