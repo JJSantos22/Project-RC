@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
+#include <iostream>
 
 using namespace std;
 
@@ -39,12 +40,17 @@ void exit();
 int main(int argc, char* argv[]){
     char *f;
     readStartingInput(argc, argv);
-    initUDP();
-    initTCP();
+    //initUDP();
+    //initTCP();
 
     while (1){
-        f = strtok(NULL, " \n"); //tem de vir de fgets do stdin
-        if (strcmp(f,"start") == 0|| strcmp(f,"sg") == 0){
+        memset(buffer, 0, 128);
+        fgets(buffer, 128, stdin);
+        f = strtok(buffer, " \n"); //tem de vir de fgets do stdin
+        if (!f){
+            continue;
+        }
+        else if (strcmp(f,"start") == 0|| strcmp(f,"sg") == 0){
             start();
         }
         else if (strcmp(f,"play") == 0 || strcmp(f,"pl") == 0){
@@ -76,14 +82,18 @@ void start(){
     int num;
     char msg[10];
     char* splid = strtok(NULL, " \n");
-    if (strlen(splid)!=6 && validPLID(splid)){
-        /*gerar erro*/
+    if (strtok(NULL, " \n")!=NULL){                     //Invalid input format
+        cout << "Invalid input format" << endl;
+    }
+    if (strlen(splid)!=6 || !validPLID(splid)){ 
+        cout << "Invalid ID" << endl;
     }
     num = sprintf(msg, "SNG %s\n", splid);
-    n = sendto(fd, msg, num, 0, (struct sockaddr*)res->ai_addr, res->ai_addrlen);
-    if (n==-1)
+    //n = sendto(fd, msg, num, 0, (struct sockaddr*)res->ai_addr, res->ai_addrlen);
+    if (n==-1){
+        cout << "Unable to send from user to server" << endl;
         exit(1); //gerar erro
-    
+    }
 
 
     
@@ -161,14 +171,15 @@ void exit(){
 }
 
 void readStartingInput(int argc, char *argv[]){
+
     for (int e = 1; e < argc; e++) {
         if (argv[e][0] == '-'){
             if (argv[e][1] == 'n'){
-                strcpy(GSip, create_string(argv[e+1]));
+                GSip = create_string(argv[e+1]);
                 e++;
             }
             else if (argv[e][1] == 'p'){
-                strcpy(GSport, create_string(argv[e+1]));
+                GSport = create_string(argv[e+1]);
                 e++;
             }
         }
@@ -207,7 +218,7 @@ void initTCP(){
 
 bool validPLID(char *string)
 {
-    int a = strspn(string, "0123456789");
+    size_t a = strspn(string, "0123456789");
     if (a==strlen(string))
         return true;
     return false;
