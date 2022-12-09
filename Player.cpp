@@ -26,8 +26,8 @@ char buffer[128];
 socklen_t addrlen;
 
 
-struct addrinfo hints,*res;
-int fd,errcode;
+struct addrinfo hintsServerUDP,*resServerUDP;
+int fdServerUDP,errcode;
 
 void readStartingInput(int argc, char* argv[]);
 void initUDP();
@@ -43,7 +43,7 @@ void exit();
 int main(int argc, char* argv[]){
     char *f;
     readStartingInput(argc, argv);
-    //initUDP();
+    initUDP();
     //initTCP();
 
     while (1){
@@ -96,11 +96,11 @@ void start(){
     }
     num = sprintf(msg, "SNG %s\n", splid);
     printf("sending: %s\n", msg);
-    //n = sendto(fd, msg, num, 0, (struct sockaddr*)res->ai_addr, res->ai_addrlen);
-    /* if (n==-1){
+    n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
+    if (n==-1){
         cout << "Unable to send from user to server" << endl;
         exit(1); 
-    } */
+    }
 
 
     
@@ -132,10 +132,14 @@ void play(){    //no server se for letra igual
     ssize_t n;
     int num;
     char msg[15];
-    char* letter = strtok(NULL, " \n");
     char* val;
-    if (strtok(NULL, " \n")!=NULL || strlen(letter)!=1 || !validAlpha(letter, 1)){                     //Invalid input format
+    char* letter = strtok(NULL, " \n");
+    if (strtok(NULL, " \n")!=NULL || letter==NULL){                     //Invalid input format
         cout << "Invalid input format" << endl;
+        return;
+    }
+    if (strlen(letter)!=1 || !validAlpha(letter, 1)){
+        cout << "Invalid letter" << endl;
         return;
     }
     attempt++;
@@ -180,8 +184,12 @@ void guess(){
     int num;
     char msg[14+word_len];
     char* word = strtok(NULL, " \n");
-    if (strtok(NULL, " \n")!=NULL || word==NULL || !validAlpha(word, strlen(word))){                     //Invalid input format
+    if (strtok(NULL, " \n")!=NULL || word==NULL){                       //Invalid input format
         cout << "Invalid input format" << endl;
+        return;
+    }
+    if (!validAlpha(word, strlen(word))){ //talvez  verificar tamanho da palavra adivinhada numa primeira instância                   
+        cout << "Invalid word" << endl;
         return;
     }
     attempt++;
@@ -260,16 +268,16 @@ void readStartingInput(int argc, char *argv[]){
 
 }
 void initUDP(){
-    fd=socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd==-1)
+    fdServerUDP=socket(AF_INET, SOCK_DGRAM, 0);
+    if (fdServerUDP==-1)
         exit(1);
 
 
-    memset((void *)&hint,0,sizeof hints);
-    hints.ai_family=AF_INET;
-    hints.ai_socktype=SOCK_DGRAM;
+    memset(&hintsServerUDP,0,sizeof hintsServerUDP);
+    hintsServerUDP.ai_family=AF_INET;
+    hintsServerUDP.ai_socktype=SOCK_DGRAM;
 
-    errcode = getaddrinfo("tejo.tecnico.ulisboa.pt", PORT, &hints, &res);
+    errcode = getaddrinfo(GSip, GSport, &hintsServerUDP, &resServerUDP);
     if (errcode!=0)
         exit(1);
 
