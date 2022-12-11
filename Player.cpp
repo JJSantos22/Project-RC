@@ -6,13 +6,18 @@
 #include <netdb.h>
 #include <iostream>
 #include <ctype.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
 using namespace std;
 
 #include "utils.h"
 
 #define GN 60
+#define IP "tejo.tecnico.ulisboa.pt"
 #define PORT "58011"
+#define BUFFERSIZE 128
 
 char* plid;                     //Verificar necessidade
 int word_len;
@@ -22,7 +27,9 @@ int attempt;
 char* GSip; 
 char* GSport;
 struct sockaddr_in addr;
-char buffer[128];
+char buffer[BUFFERSIZE];
+char msg[BUFFERSIZE];
+char receiving[BUFFERSIZE];
 socklen_t addrlen;
 
 
@@ -47,8 +54,8 @@ int main(int argc, char* argv[]){
     //initTCP();
 
     while (1){
-        memset(buffer, 0, 128);
-        fgets(buffer, 128, stdin);
+        memset(buffer, 0, BUFFERSIZE);
+        fgets(buffer, BUFFERSIZE, stdin);
         f = strtok(buffer, " \n"); //tem de vir de fgets do stdin
         if (!f){
             continue;
@@ -84,8 +91,9 @@ int main(int argc, char* argv[]){
 void start(){
     ssize_t n;
     int num;
-    char msg[11];
     char* splid = strtok(NULL, " \n");
+    char f[3];
+    char conf[2];//se calhar alterar
     if (strtok(NULL, " \n")!=NULL || splid==NULL){                     //Invalid input format
         cout << "Invalid input format" << endl;
         return;
@@ -94,15 +102,37 @@ void start(){
         cout << "Invalid ID" << endl;
         return;
     }
+
+    memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "SNG %s\n", splid);
-    printf("sending: %s\n", msg);
-    n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
+    printf("sending: %s", msg);
+    n = sendto(fdServerUDP, msg, num, MSG_CONFIRM, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
         cout << "Unable to send from user to server" << endl;
         exit(1); 
     }
 
+    addrlen=sizeof(addr);
+    memset(receiving, 0, BUFFERSIZE);
+    n=recvfrom(fdServerUDP, receiving, BUFFERSIZE, MSG_WAITALL, (struct sockaddr*)&addr, &addrlen);
+    if (n==-1){
+        cout << "Unable to receive from server" << endl;
+        exit(1);
+    }
 
+    sscanf(receiving, "%s", f);
+
+    if (strcmp(f, "RSG")!=0){
+        cout << "Wrong return message from server to user" << endl;
+        exit(1); 
+    }
+
+    sscanf(receiving, "RSG %s %d %d\n", conf, &word_len, &max_errors);
+
+    if (strcmp(conf, "OK")!=0){
+        cout << "Operation went wrong in the server" << endl;
+        exit(1); 
+    }
     
     attempt = 0;
 
@@ -115,8 +145,6 @@ void start(){
     printf("New game started (max errors) errors: (nºde letras com underscores)");
 
     */
-    word_len=6; //ALTERAR!! nº de letras a receber do server
-    max_errors=4; //ALTERAR!! nº maximo de erros
     char* l = (char *)malloc(2*word_len*sizeof(char));
     for (int i=0; i < word_len; i++){
         l[2*i] = '_';
@@ -142,6 +170,7 @@ void play(){    //no server se for letra igual
         cout << "Invalid letter" << endl;
         return;
     }
+    memset(msg, 0, BUFFERSIZE);
     attempt++;
     num = sprintf(msg, "PLG %s %s %d\n", plid, letter, attempt);
     printf("sending: %s\n", msg);
@@ -192,6 +221,7 @@ void guess(){
         cout << "Invalid word" << endl;
         return;
     }
+    memset(msg, 0, BUFFERSIZE);
     attempt++;
     num = sprintf(msg, "PWG %s %s %d\n", plid, word, attempt);
     printf("sending: %s\n", msg);
@@ -242,10 +272,12 @@ void exit(){
 }
 
 void readStartingInput(int argc, char *argv[]){
-
+    gethostname(buffer, BUFFERSIZE);
+    GSip = create_string(buffer);
     for (int e = 1; e < argc; e++) {
         if (argv[e][0] == '-'){
             if (argv[e][1] == 'n'){
+                free(GSip);
                 GSip = create_string(argv[e+1]);
                 e++;
             }
@@ -272,7 +304,6 @@ void initUDP(){
     if (fdServerUDP==-1)
         exit(1);
 
-
     memset(&hintsServerUDP,0,sizeof hintsServerUDP);
     hintsServerUDP.ai_family=AF_INET;
     hintsServerUDP.ai_socktype=SOCK_DGRAM;
@@ -280,7 +311,6 @@ void initUDP(){
     errcode = getaddrinfo(GSip, GSport, &hintsServerUDP, &resServerUDP);
     if (errcode!=0)
         exit(1);
-
 }
 
 void initTCP(){
