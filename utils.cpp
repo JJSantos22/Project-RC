@@ -1,10 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "utils.h"
 
 using namespace std;
 
-#include "utils.h"
+
 
 bool validPLID(char *string)
 {

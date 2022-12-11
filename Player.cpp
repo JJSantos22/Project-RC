@@ -9,10 +9,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include "utils.h"
+
 
 using namespace std;
 
-#include "utils.h"
 
 #define GN 60
 #define IP "tejo.tecnico.ulisboa.pt"
@@ -31,6 +32,7 @@ char buffer[BUFFERSIZE];
 char msg[BUFFERSIZE];
 char receiving[BUFFERSIZE];
 socklen_t addrlen;
+char *l;
 
 
 struct addrinfo hintsServerUDP,*resServerUDP;
@@ -93,7 +95,7 @@ void start(){
     int num;
     char* splid = strtok(NULL, " \n");
     char f[3];
-    char conf[2];//se calhar alterar
+    char conf[3];
     if (strtok(NULL, " \n")!=NULL || splid==NULL){                     //Invalid input format
         cout << "Invalid input format" << endl;
         return;
@@ -106,7 +108,7 @@ void start(){
     memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "SNG %s\n", splid);
     printf("sending: %s", msg);
-    n = sendto(fdServerUDP, msg, num, MSG_CONFIRM, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
+    n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
         cout << "Unable to send from user to server" << endl;
         exit(1); 
@@ -114,7 +116,7 @@ void start(){
 
     addrlen=sizeof(addr);
     memset(receiving, 0, BUFFERSIZE);
-    n=recvfrom(fdServerUDP, receiving, BUFFERSIZE, MSG_WAITALL, (struct sockaddr*)&addr, &addrlen);
+    n=recvfrom(fdServerUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
     if (n==-1){
         cout << "Unable to receive from server" << endl;
         exit(1);
@@ -129,30 +131,25 @@ void start(){
 
     sscanf(receiving, "RSG %s %d %d\n", conf, &word_len, &max_errors);
 
-    if (strcmp(conf, "OK")!=0){
-        cout << "Operation went wrong in the server" << endl;
+    if (strcmp(conf, "NOK")==0){
+        cout << "Game already ongoing" << endl;
+        exit(1); 
+    }
+    else if (strcmp(conf, "OK")!=0){
+        cout << "Unexpected response" << endl;
         exit(1); 
     }
     
     attempt = 0;
 
-    /*recebe start ou sg e recebe um plid do input
-
-    envia por UDP "SNG plid\n"(6 caracteres para plid)
-
-    recebe por UDP "(RSG) (status) (nºde letras da palavra) (número máximo de erros q se pode dar)\n"
-
-    printf("New game started (max errors) errors: (nºde letras com underscores)");
-
-    */
-    char* l = (char *)malloc(2*word_len*sizeof(char));
+    
+    l = (char *)malloc(2*word_len*sizeof(char));
     for (int i=0; i < word_len; i++){
         l[2*i] = '_';
         l[2*i+1] = ' ';
     }
     printf("New game started (max %d errors): %s\n", max_errors, l);
     plid = create_string(splid);
-    free(l);
 
 }
 

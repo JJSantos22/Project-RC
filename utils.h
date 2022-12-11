@@ -11,4 +11,4 @@ int get_max_errors(char *word);
 char* create_string(char* p);
 bool validAlpha(char *string, size_t n);
 
-#endif 
+#endif /*UTILS_H*/

@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include "utils.h"
 
 using namespace std;
 
@@ -51,7 +52,7 @@ int main(int argc, char *argv[]){
         ssize_t n;
         addrlen=sizeof(addr);
         memset(receiving, 0, BUFFERSIZE);
-        n=recvfrom(fdClientUDP, receiving, BUFFERSIZE, MSG_WAITALL, (struct sockaddr*)&addr, &addrlen);
+        n=recvfrom(fdClientUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
         if (n==-1)
             exit(1);
         printf("RECEIVED: %s", receiving);
@@ -85,7 +86,7 @@ void start(){
     num = sprintf(buffer, "RSG OK %d %d\n", word_len, max_errors);
     printf("sending: %s", buffer);
     addrlen=sizeof(addr);
-    n = sendto(fdClientUDP, buffer, num, MSG_CONFIRM, (struct sockaddr *) &addr, addrlen);
+    n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
         cout << "Unable to send from server to user" << endl;
         exit(1); 
@@ -110,9 +111,6 @@ void readInput(int argc, char *argv[]){
         else
             printf("\nWrong format in: %s (input argument)\n", argv[e]);
     }
-
-
-
     
 }
 
@@ -128,7 +126,7 @@ void initGSUDP(){
     hintsClientUDP.ai_socktype=SOCK_DGRAM; // UDP socket
     hintsClientUDP.ai_flags=AI_PASSIVE;
 
-    errcode=getaddrinfo(NULL,GSport,&hintsClientUDP,&resClientUDP);
+    errcode=getaddrinfo(NULL, GSport, &hintsClientUDP, &resClientUDP);
     if(errcode!=0)
         exit(1);
 
