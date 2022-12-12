@@ -25,6 +25,7 @@ int word_len;
 int max_errors;
 char buffer[BUFFERSIZE];
 char receiving[BUFFERSIZE];
+int attempt;
 
 struct addrinfo hintsClientUDP,*resClientUDP;
 int fdClientUDP,errcode;
@@ -38,9 +39,9 @@ void initGSUDP();
 void initGSTCP();
 void initDB();
 void start();
+void play();
 
 int main(int argc, char *argv[]){
-    char *f;
     readInput(argc, argv);
     initGSUDP();
     //initTCP();
@@ -50,26 +51,21 @@ int main(int argc, char *argv[]){
 
     while (1){
         ssize_t n;
-        addrlen=sizeof(addr);
-        memset(receiving, 0, BUFFERSIZE);
-        n=recvfrom(fdClientUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
-        if (n==-1)
-            exit(1);
-        printf("RECEIVED: %s", receiving);
-        sscanf(receiving,"%s", op);
-        if (strcmp(op, "SNG")==0)
-            start();
-        
-        /* FD_ZERO(&readfds);
+        FD_ZERO(&readfds);
         FD_SET(fdClientUDP, &readfds);
-        FD_SET(fdClientTCP, &readfds);
-        f = strtok(buffer, " \n"); //tem de vir de fgets do stdin
-        if (!f){
-            continue;
-        }
         if (FD_ISSET(fdClientUDP, &readfds)){
-            start();
-        } */
+            addrlen=sizeof(addr);
+            memset(receiving, 0, BUFFERSIZE);
+            n=recvfrom(fdClientUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
+            if (n==-1)
+                exit(1);
+            printf("RECEIVED: %s", receiving);
+            sscanf(receiving,"%s", op);
+            if (strcmp(op, "SNG")==0)
+                start();
+            else if (strcmp(op, "PLG")==0)
+                play();
+        } 
     }
     
     initGSTCP();
@@ -84,6 +80,32 @@ void start(){
     word_len = 7;
     max_errors = 2;
     num = sprintf(buffer, "RSG OK %d %d\n", word_len, max_errors);
+    printf("sending: %s", buffer);
+    addrlen=sizeof(addr);
+    n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
+    if (n==-1){
+        cout << "Unable to send from server to user" << endl;
+        exit(1); 
+    }
+    attempt=0;
+}
+
+void play(){
+    ssize_t n;
+    int num;
+    int hits=2;
+    int pos[hits];
+    memset(buffer, 0, BUFFERSIZE);
+    attempt++;
+    word_len = 7;
+    max_errors = 2;
+    pos[0]=2;
+    pos[1]=9;
+    sprintf(buffer, "RLG OK %d %d", attempt, hits);
+    for (int i=0; i<hits; i++){
+        sprintf(buffer, "%s %d", buffer, pos[i]);
+    }
+    num = sprintf(buffer, "%s\n", buffer);
     printf("sending: %s", buffer);
     addrlen=sizeof(addr);
     n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
