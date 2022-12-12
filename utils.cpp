@@ -51,3 +51,4 @@ char* create_string(char* p){
     strcpy(string, p);
     return string;
 }
+

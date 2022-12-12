@@ -11,6 +11,9 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include "utils.h"
+#include <string>
+#include <cstdlib>
+#include <ctime>
 
 using namespace std;
 
@@ -26,6 +29,7 @@ int max_errors;
 char buffer[BUFFERSIZE];
 char receiving[BUFFERSIZE];
 int attempt;
+char *word; //alterar
 
 struct addrinfo hintsClientUDP,*resClientUDP;
 int fdClientUDP,errcode;
@@ -40,6 +44,9 @@ void initGSTCP();
 void initDB();
 void start();
 void play();
+void guess();
+int get_max_errors(char* word);
+char *choose_word();
 
 int main(int argc, char *argv[]){
     readInput(argc, argv);
@@ -65,7 +72,9 @@ int main(int argc, char *argv[]){
                 start();
             else if (strcmp(op, "PLG")==0)
                 play();
-        } 
+           else if (strcmp(op, "PWG")==0)
+                guess();
+        }
     }
     
     initGSTCP();
@@ -77,8 +86,12 @@ void start(){
     ssize_t n;
     int num;
     memset(buffer, 0, BUFFERSIZE);
-    word_len = 7;
-    max_errors = 2;
+    word=choose_word();
+    printf("Word: %s\n", word);
+    word_len = strlen(word); //alterar
+    max_errors = get_max_errors(word); //alterar
+    if (max_errors==-1)
+        exit(1);
     num = sprintf(buffer, "RSG OK %d %d\n", word_len, max_errors);
     printf("sending: %s", buffer);
     addrlen=sizeof(addr);
@@ -93,17 +106,16 @@ void start(){
 void play(){
     ssize_t n;
     int num;
-    int hits=2;
+    int hits=2; //alterar
     int pos[hits];
     memset(buffer, 0, BUFFERSIZE);
     attempt++;
-    word_len = 7;
-    max_errors = 2;
-    pos[0]=2;
-    pos[1]=9;
+    pos[0]=2; //alterar
+    pos[1]=5; //alterar
     sprintf(buffer, "RLG OK %d %d", attempt, hits);
     for (int i=0; i<hits; i++){
         sprintf(buffer, "%s %d", buffer, pos[i]);
+        //strcat(buffer, s);
     }
     num = sprintf(buffer, "%s\n", buffer);
     printf("sending: %s", buffer);
@@ -115,8 +127,9 @@ void play(){
     }
 }
 
+void guess(){}
+
 void readInput(int argc, char *argv[]){
-    int e=1;
     verbose = 0;
     if (argc)
     for (int e = 1; e < argc; e++) {
@@ -124,7 +137,6 @@ void readInput(int argc, char *argv[]){
             if (argv[e][1] == 'n'){
                 GSport = create_string(argv[e+1]);
                 e++;
-                printf("PORT: %s\n", GSport);
             }
             else if (argv[e][1] == 'v'){
                 verbose=1;
@@ -178,4 +190,42 @@ char* create_string(char* p){
     }
     strcpy(string, p);
     return string;
+}
+
+char* choose_word()
+{
+    srand(time(0));
+    char* wordList[4];
+    wordList[0] = create_string("minimilk");
+    wordList[1] = create_string("benfica");
+    wordList[2] = create_string("computador");
+    wordList[3] = create_string("veado");
+
+    int val = rand() % 4;
+    char* word = wordList[val];
+
+    for (int i=0; i<4; i++){
+        if (i!=val)
+            free(wordList[i]);
+    }
+
+    return word;
+}
+
+int get_max_errors(char *word){
+
+    int max_errors;
+
+    if (strlen(word) >= 3 && strlen(word) <= 6)
+        max_errors = 7;
+    else if (strlen(word) > 6 && strlen(word) <= 11 ) 
+        max_errors = 8;
+    else if (strlen(word) > 11 && strlen(word) <= 30 ) 
+        max_errors = 9;
+    else {
+        printf("Invalid word\n");
+        return -1;
+    }
+
+    return max_errors;
 }

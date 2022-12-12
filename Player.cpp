@@ -123,14 +123,12 @@ void start(){
     }
 
     sscanf(receiving, "%s", f);
-
     if (strcmp(f, "RSG")!=0){
         cout << "Wrong return message from server to user" << endl;
         exit(1); 
     }
 
     sscanf(receiving, "RSG %s %d %d\n", conf, &word_len, &max_errors);
-
     if (strcmp(conf, "NOK")==0){
         cout << "Game already ongoing" << endl;
         exit(1); 
@@ -141,7 +139,6 @@ void start(){
     }
     
     attempt = 0;
-
 
     l = (char *)malloc(2*word_len*sizeof(char));
     for (int i=0; i < word_len; i++){
@@ -157,11 +154,11 @@ void play(){    //no server se for letra igual
     ssize_t n;
     int num;
     int hits;
-    char f[3];
-    char conf[3];
-    int val;
-    char message[BUFFERSIZE];
+    char* f;
+    char* status;
+    char* value;
     char *letter = strtok(NULL, " \n");
+    
     if (strtok(NULL, " \n")!=NULL || letter==NULL){                     //Invalid input format
         cout << "Invalid input format" << endl;
         return;
@@ -187,26 +184,31 @@ void play(){    //no server se for letra igual
         exit(1);
     }
 
-    sscanf(receiving, "%s", f);
+    f = strtok(receiving, " \n");;
 
     if (strcmp(f, "RLG")!=0){
         cout << "Wrong return message from server to user" << endl;
         exit(1); 
     }
 
-    sscanf(receiving, "RLG %s %d %d %s\n", conf, &attempt, &hits, message);
+    status = strtok(NULL, " \n");
+    printf("%s\n", status);
 
-    if (strcmp(conf, "NOK")==0){
+    if (strcmp(status, "NOK")==0){
         cout << "Game already ongoing" << endl;
         exit(1); 
     }
-    else if (strcmp(conf, "OK")!=0){
+    else if (strcmp(status, "OK")!=0){
         cout << "Unexpected response" << endl;
         exit(1); 
     }
-    printf("%c\n", *letter);
-    while (sscanf(message, "%d %s", &val, message)>1){
-        sscanf(letter, "%c", &l[2*val]);
+
+    attempt = atoi(strtok(NULL, " \n"));
+    hits = atoi(strtok(NULL, " \n"));
+
+    while ((value = strtok(NULL, " \n"))!=NULL){
+        printf("%s\n", value);
+        l[2*atoi(value)] = letter[0];
     }
         
     /*recebe play ou pl e recebe uma letra(nota: case insensitive) do input
@@ -237,7 +239,7 @@ void play(){    //no server se for letra igual
 }
 
 void guess(){
-    //ssize_t n;
+    ssize_t n;
     int num;
     char* word = strtok(NULL, " \n");
     if (strtok(NULL, " \n")!=NULL || word==NULL){                       //Invalid input format
@@ -252,6 +254,19 @@ void guess(){
     attempt++;
     num = sprintf(msg, "PWG %s %s %d\n", plid, word, attempt);
     printf("sending: %s\n", msg);
+
+    n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
+    if (n==-1){
+        cout << "Unable to send from user to server" << endl;
+        exit(1); 
+    }
+    
+    memset(receiving, 0, BUFFERSIZE);
+    n=recvfrom(fdServerUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
+    if (n==-1){
+        cout << "Unable to receive from server" << endl;
+        exit(1);
+    }
     /*recebe guess ou gw e recebe uma palavra(nota: case insensitive) do input
     
     envia por UDP "PWG plid (palavra) (tentativa)\n"
