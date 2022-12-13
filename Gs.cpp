@@ -14,6 +14,10 @@
 #include <string>
 #include <cstdlib>
 #include <ctime>
+#include <vector>
+#include <fstream>
+#include <cstring>
+
 
 using namespace std;
 
@@ -30,6 +34,8 @@ char buffer[BUFFERSIZE];
 char receiving[BUFFERSIZE];
 int attempt;
 char *word; //alterar
+char *plid;
+int thits;
 
 struct addrinfo hintsClientUDP,*resClientUDP;
 int fdClientUDP,errcode;
@@ -46,7 +52,8 @@ void start();
 void play();
 void guess();
 int get_max_errors(char* word);
-char *choose_word();
+void choose_word();
+int letter_in_word(char* word, char* letter, char* pos, int word_len);
 
 int main(int argc, char *argv[]){
     readInput(argc, argv);
@@ -54,7 +61,7 @@ int main(int argc, char *argv[]){
     //initTCP();
 
     fd_set readfds;
-    char op[3];
+    char* op;
 
     while (1){
         ssize_t n;
@@ -67,7 +74,7 @@ int main(int argc, char *argv[]){
             if (n==-1)
                 exit(1);
             printf("RECEIVED: %s", receiving);
-            sscanf(receiving,"%s", op);
+            op = strtok(receiving, " \n");
             if (strcmp(op, "SNG")==0)
                 start();
             else if (strcmp(op, "PLG")==0)
@@ -86,10 +93,21 @@ void start(){
     ssize_t n;
     int num;
     memset(buffer, 0, BUFFERSIZE);
-    word=choose_word();
-    printf("Word: %s\n", word);
-    word_len = strlen(word); //alterar
-    max_errors = get_max_errors(word); //alterar
+    plid = strtok(NULL, " \n");
+    
+    choose_word();
+    printf("W:%s\n",word);
+    
+
+    
+
+   
+    
+
+
+    word_len = strlen(word); 
+    thits=word_len;
+    max_errors = get_max_errors(word);
     if (max_errors==-1)
         exit(1);
     num = sprintf(buffer, "RSG OK %d %d\n", word_len, max_errors);
@@ -106,18 +124,32 @@ void start(){
 void play(){
     ssize_t n;
     int num;
-    int hits=2; //alterar
-    int pos[hits];
-    memset(buffer, 0, BUFFERSIZE);
-    attempt++;
-    pos[0]=2; //alterar
-    pos[1]=5; //alterar
-    sprintf(buffer, "RLG OK %d %d", attempt, hits);
-    for (int i=0; i<hits; i++){
-        sprintf(buffer, "%s %d", buffer, pos[i]);
-        //strcat(buffer, s);
+    char* letter;
+    char* id;
+    char* status = (char*)calloc(3, sizeof(char));
+    char* pos = (char*)calloc((word_len*2), sizeof(char));
+    if (pos == NULL){
+        perror("Error: ");
+        exit(1);
     }
-    num = sprintf(buffer, "%s\n", buffer);
+
+    id = strtok(NULL, " \n");
+    if (strcmp(id, plid)!=0){ //alterar talvez
+        exit(1);
+    }
+    letter = strtok(NULL, " \n");
+    printf("letter:%s\n",letter);
+    if(attempt+1 == (num=atoi(strtok(NULL, " \n")))){
+        attempt++;
+    }
+    int hits = letter_in_word(word, letter, pos, word_len); 
+    thits-=hits;
+    if(thits==0)
+        strcpy(status, "WIN");
+    else
+        strcpy(status, "OK");
+    memset(buffer, 0, BUFFERSIZE);
+    num = sprintf(buffer, "RLG %s %d %d%s\n", status, attempt, hits, pos);
     printf("sending: %s", buffer);
     addrlen=sizeof(addr);
     n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
@@ -125,6 +157,7 @@ void play(){
         cout << "Unable to send from server to user" << endl;
         exit(1); 
     }
+    free(pos);
 }
 
 void guess(){}
@@ -192,24 +225,48 @@ char* create_string(char* p){
     return string;
 }
 
-char* choose_word()
+void choose_word()//REVER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 {
     srand(time(0));
-    char* wordList[4];
-    wordList[0] = create_string("minimilk");
-    wordList[1] = create_string("benfica");
-    wordList[2] = create_string("computador");
-    wordList[3] = create_string("veado");
+    char* word_array[26];
+    
+    std::ifstream plik("word_eng.txt");
 
-    int val = rand() % 4;
-    char* word = wordList[val];
-
-    for (int i=0; i<4; i++){
-        if (i!=val)
-            free(wordList[i]);
+    if (!plik) {
+        std::cerr << "not working";
+        exit(1);
     }
+    
+    std::vector<std::string> city;
+    std::string tmp;
+    while (std::getline(plik, tmp)) {
+        city.push_back(tmp.substr(0, tmp.find_first_of(" ")));
+    }
+    plik.close();
+    int e=0;
+    for (string i : city){
+        word_array[e] = &i[0];
+        printf("e:%d W:%s\n", e, word_array[e]);
+        e++;
 
-    return word;
+    } 
+
+    int val = rand() % 26;
+    printf("v:%d\n", val);
+    word = create_string(word_array[val]);
+}
+
+int letter_in_word(char* word, char* letter, char* pos, int word_len){
+    int hits=0;
+    char add[3];
+    for (int i=0; i<word_len; i++){
+        if (word[i] == letter[0]){
+            hits++;
+            sprintf(add, " %d", i);
+            strcat(pos, add);
+        }            
+    }
+    return hits;
 }
 
 int get_max_errors(char *word){
@@ -229,3 +286,6 @@ int get_max_errors(char *word){
 
     return max_errors;
 }
+
+
+

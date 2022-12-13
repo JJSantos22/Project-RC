@@ -170,7 +170,7 @@ void play(){    //no server se for letra igual
     memset(msg, 0, BUFFERSIZE);
     attempt++;
     num = sprintf(msg, "PLG %s %s %d\n", plid, letter, attempt);
-    printf("sending: %s\n", msg);
+    printf("sending: %s", msg);
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
         cout << "Unable to send from user to server" << endl;
@@ -194,7 +194,11 @@ void play(){    //no server se for letra igual
     status = strtok(NULL, " \n");
     printf("%s\n", status);
 
-    if (strcmp(status, "NOK")==0){
+    if (strcmp(status, "WIN")==0){
+        cout << "GAMEOVER" << endl;//alterar
+        exit(1); 
+    }
+    else if (strcmp(status, "NOK")==0){
         cout << "Game already ongoing" << endl;
         exit(1); 
     }
