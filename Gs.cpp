@@ -33,7 +33,7 @@ int max_errors;
 char buffer[BUFFERSIZE];
 char receiving[BUFFERSIZE];
 int attempt;
-char *word; //alterar
+char *word; 
 char *plid;
 int thits;
 
@@ -73,7 +73,7 @@ int main(int argc, char *argv[]){
             n=recvfrom(fdClientUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
             if (n==-1)
                 exit(1);
-            printf("RECEIVED: %s", receiving);
+            printf("RECEIVING: %s", receiving);
             op = strtok(receiving, " \n");
             if (strcmp(op, "SNG")==0)
                 start();
@@ -93,25 +93,17 @@ void start(){
     ssize_t n;
     int num;
     memset(buffer, 0, BUFFERSIZE);
-    plid = strtok(NULL, " \n");
+    plid = create_string(strtok(NULL, " \n"));
     
     choose_word();
     printf("W:%s\n",word);
-    
-
-    
-
-   
-    
-
-
     word_len = strlen(word); 
     thits=word_len;
     max_errors = get_max_errors(word);
     if (max_errors==-1)
         exit(1);
     num = sprintf(buffer, "RSG OK %d %d\n", word_len, max_errors);
-    printf("sending: %s", buffer);
+    printf("SENDING: %s", buffer);
     addrlen=sizeof(addr);
     n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
@@ -126,7 +118,7 @@ void play(){
     int num;
     char* letter;
     char* id;
-    char* status = (char*)calloc(3, sizeof(char));
+    char* status = (char*)calloc(3+1, sizeof(char));
     char* pos = (char*)calloc((word_len*2), sizeof(char));
     if (pos == NULL){
         perror("Error: ");
@@ -148,9 +140,10 @@ void play(){
         strcpy(status, "WIN");
     else
         strcpy(status, "OK");
+
     memset(buffer, 0, BUFFERSIZE);
     num = sprintf(buffer, "RLG %s %d %d%s\n", status, attempt, hits, pos);
-    printf("sending: %s", buffer);
+    printf("SENDING: %s", buffer);
     addrlen=sizeof(addr);
     n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
@@ -228,8 +221,8 @@ char* create_string(char* p){
 void choose_word()//REVER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 {
     srand(time(0));
-    char* word_array[26];
-    
+    int val;
+
     std::ifstream plik("word_eng.txt");
 
     if (!plik) {
@@ -240,20 +233,11 @@ void choose_word()//REVER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     std::vector<std::string> city;
     std::string tmp;
     while (std::getline(plik, tmp)) {
-        city.push_back(tmp.substr(0, tmp.find_first_of(" ")));
+        city.push_back(tmp.substr(0, tmp.find_first_of(" ")));  //adicionar para depois sacar o nome do ficheiro de hint
     }
     plik.close();
-    int e=0;
-    for (string i : city){
-        word_array[e] = &i[0];
-        printf("e:%d W:%s\n", e, word_array[e]);
-        e++;
-
-    } 
-
-    int val = rand() % 26;
-    printf("v:%d\n", val);
-    word = create_string(word_array[val]);
+    val = rand() % 26;
+    word = create_string(&city[val][0]);
 }
 
 int letter_in_word(char* word, char* letter, char* pos, int word_len){
@@ -262,7 +246,7 @@ int letter_in_word(char* word, char* letter, char* pos, int word_len){
     for (int i=0; i<word_len; i++){
         if (word[i] == letter[0]){
             hits++;
-            sprintf(add, " %d", i);
+            sprintf(add, " %d", i+1);
             strcat(pos, add);
         }            
     }

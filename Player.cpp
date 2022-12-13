@@ -107,7 +107,7 @@ void start(){
 
     memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "SNG %s\n", splid);
-    printf("sending: %s", msg);
+    printf("SENDING: %s", msg);
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
         cout << "Unable to send from user to server" << endl;
@@ -121,6 +121,8 @@ void start(){
         cout << "Unable to receive from server" << endl;
         exit(1);
     }
+
+    printf("RECEIVING: %s", receiving);
 
     sscanf(receiving, "%s", f);
     if (strcmp(f, "RSG")!=0){
@@ -141,9 +143,10 @@ void start(){
     attempt = 0;
 
     l = (char *)malloc(2*word_len*sizeof(char));
-    for (int i=0; i < word_len; i++){
+    l[0] = '_';
+    for (int i=1; i < word_len; i++){
+        l[2*i-1] = ' ';
         l[2*i] = '_';
-        l[2*i+1] = ' ';
     }
     printf("New game started (max %d errors): %s\n", max_errors, l);
     plid = create_string(splid);
@@ -170,7 +173,7 @@ void play(){    //no server se for letra igual
     memset(msg, 0, BUFFERSIZE);
     attempt++;
     num = sprintf(msg, "PLG %s %s %d\n", plid, letter, attempt);
-    printf("sending: %s", msg);
+    printf("SENDING: %s", msg);
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
         cout << "Unable to send from user to server" << endl;
@@ -183,6 +186,8 @@ void play(){    //no server se for letra igual
         cout << "Unable to receive from server" << endl;
         exit(1);
     }
+
+    printf("RECEIVING: %s", receiving);
 
     f = strtok(receiving, " \n");;
 
@@ -211,8 +216,7 @@ void play(){    //no server se for letra igual
     hits = atoi(strtok(NULL, " \n"));
 
     while ((value = strtok(NULL, " \n"))!=NULL){
-        printf("%s\n", value);
-        l[2*atoi(value)] = letter[0];
+        l[2*(atoi(value)-1)] = letter[0];
     }
         
     /*recebe play ou pl e recebe uma letra(nota: case insensitive) do input
@@ -257,7 +261,7 @@ void guess(){
     memset(msg, 0, BUFFERSIZE);
     attempt++;
     num = sprintf(msg, "PWG %s %s %d\n", plid, word, attempt);
-    printf("sending: %s\n", msg);
+    printf("SENDING: %s\n", msg);
 
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
@@ -271,6 +275,8 @@ void guess(){
         cout << "Unable to receive from server" << endl;
         exit(1);
     }
+
+    printf("RECEIVING: %s", receiving);
     /*recebe guess ou gw e recebe uma palavra(nota: case insensitive) do input
     
     envia por UDP "PWG plid (palavra) (tentativa)\n"
