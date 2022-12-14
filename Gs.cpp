@@ -27,16 +27,18 @@ using namespace std;
 
 //Global Variables
 int verbose;
-char *GSport;
+char *GSport;   //free no fim
 int word_len;
 int max_errors;
 char buffer[BUFFERSIZE];
 char receiving[BUFFERSIZE];
 int attempt;
-char *word; 
-char *plid;
+char *word;     //free no fim
+char *plid;     //free no fim
+char *wfile;    //free no fim
+int lines=0;
 int thits;
-char* wordfile;
+ifstream wordfile;
 
 struct addrinfo hintsClientUDP,*resClientUDP;
 int fdClientUDP,errcode;
@@ -93,7 +95,6 @@ int main(int argc, char *argv[]){
 void start(){
     ssize_t n;
     int num;
-    memset(buffer, 0, BUFFERSIZE);
     plid = create_string(strtok(NULL, " \n"));
     
     choose_word();
@@ -101,9 +102,14 @@ void start(){
     word_len = strlen(word); 
     thits=word_len;
     max_errors = get_max_errors(word);
-    if (max_errors==-1)
+    if (max_errors==-1){
+        cout << "Invalid word size" << endl;
         exit(1);
+    }
+
+    memset(buffer, 0, BUFFERSIZE);
     num = sprintf(buffer, "RSG OK %d %d\n", word_len, max_errors);
+
     printf("SENDING: %s", buffer);
     addrlen=sizeof(addr);
     n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
@@ -119,7 +125,7 @@ void play(){
     int num;
     char* letter;
     char* id;
-    char* status = (char*)calloc(3+1, sizeof(char));
+    char status[3+1];
     char* pos = (char*)calloc((word_len*2), sizeof(char));
     if (pos == NULL){
         perror("Error: ");
@@ -144,7 +150,7 @@ void play(){
     memset(buffer, 0, BUFFERSIZE);
     num = sprintf(buffer, "RLG %s %d %d%s\n", status, attempt, hits, pos);
     printf("SENDING: %s", buffer);
-    addrlen=sizeof(addr);
+    
     n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
         cout << "Unable to send from server to user" << endl;
@@ -158,33 +164,40 @@ void guess(){}
 void readInput(int argc, char *argv[]){     //adicionar mais verificações
     verbose = 0;
     if (argc<2 || argc>5){
-        printf("\nWrong number of arguments\n");
+        cout << "Wrong number of arguments" << endl;
         exit(1);
     }
-    wordfile = create_string(argv[1]);
+    
+    wfile = create_string(argv[1]);
+    ifstream wordfile(wfile);
+    string tmp;
+    if (!wordfile) {
+        cout << "No word file with that name was found" << endl;
+        exit(1);
+    }
+    while (getline(wordfile, tmp))
+        lines++;                            //contar número de linhas
+    wordfile.close();
+    
     char dport[BUFFERSIZE];
     memset(dport, 0, BUFFERSIZE);
     sprintf(dport, "%d", GN+PORT);
     GSport = create_string(dport);
     for (int e = 2; e < argc; e++) {
         if (argv[e][0] == '-'){
-            if (argv[e][1] == 'p'){         //alterar para verificar default
+            if (argv[e][1] == 'p'){
                 free(GSport);
                 GSport = create_string(argv[e+1]);
                 e++;
             }
-            else if (argv[e][1] == 'v'){    
+            else if (argv[e][1] == 'v') 
                 verbose=1;
-            }
         }
         else{
             printf("\nWrong format in: %s (input argument)\n", argv[e]);
             exit(1);
         }
-            
-
     }
-    
 }
 
 void initGSUDP(){
@@ -209,9 +222,7 @@ void initGSUDP(){
     
 }
 
-void initGSTCP(){
-    
-}
+void initGSTCP(){}
 
 void initDB(){
     DIR *dir;
@@ -231,26 +242,24 @@ char* create_string(char* p){
     return string;
 }
 
-void choose_word()//Descobrir se ficheiro deve executar com nome de wordfile errado
-{
-    srand(time(0));
-    int val;
+void choose_word(){
+    srand((unsigned) time(0));
+    int val = rand() % lines;
+    string tmp;
+    int e=0;
 
-    std::ifstream plik(wordfile);
-
-    if (!plik) {
-        cout << "Error getting word file" << endl;
+    ifstream wordfile(wfile);
+    if (!wordfile) {
+        cout << "No word file was found" << endl;
         exit(1);
     }
-    
-    std::vector<std::string> city;
-    std::string tmp;
-    while (std::getline(plik, tmp)) {
-        city.push_back(tmp.substr(0, tmp.find_first_of(" ")));  //adicionar para depois sacar o nome do ficheiro de hint
+    while (e<=val){
+        getline(wordfile, tmp);
+        e++;
     }
-    plik.close();
-    val = rand() % 26;
-    word = create_string(&city[val][0]);
+    wordfile.close();
+    tmp = tmp.substr(0, tmp.find_first_of(" "));
+    word = create_string(&tmp[0]);
 }
 
 int letter_in_word(char* word, char* letter, char* pos, int word_len){
@@ -276,10 +285,8 @@ int get_max_errors(char *word){
         max_errors = 8;
     else if (strlen(word) > 11 && strlen(word) <= 30 ) 
         max_errors = 9;
-    else {
-        printf("Invalid word\n");
+    else 
         return -1;
-    }
 
     return max_errors;
 }

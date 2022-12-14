@@ -143,7 +143,7 @@ void start(){
     
     attempt = 0;
 
-    l = (char *)malloc((2*word_len+1)*sizeof(char));
+    l = (char *)calloc((2*word_len+1),sizeof(char));
     if (l == NULL){
         perror("Error: ");
         exit(1);
@@ -153,13 +153,13 @@ void start(){
         l[2*i-1] = ' ';
         l[2*i] = '_';
     }
-    l[2*i+1]='\0';
+    l[2*i]='\0';
     printf("New game started (max %d errors): %s\n", max_errors, l);
     plid = create_string(splid);
 
 }
 
-void play(){    //no server se for letra igual 
+void play(){    //no server se for letra repetida 
     ssize_t n;
     int num;
     int hits;
@@ -349,14 +349,11 @@ void readStartingInput(int argc, char *argv[]){
                 e++;
             }
         }
-        else
+        else{
             printf("\nWrong format in: %s (input argument)\n", argv[e]);
+            exit(1);
+        }
     }
-    //if (GSport == NULL)
-        //GSport=create_string(getaddrinfo(NULL, NULL, NULL, NULL)); //rever 
-     //   GSport = NULL;
-    
-
 }
 void initUDP(){
     fdServerUDP=socket(AF_INET, SOCK_DGRAM, 0);
