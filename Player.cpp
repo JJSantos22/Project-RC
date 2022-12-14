@@ -176,6 +176,7 @@ void play(){    //no server se for letra repetida
         cout << "Invalid letter" << endl;
         return;
     }
+
     memset(msg, 0, BUFFERSIZE);
     attempt++;
     num = sprintf(msg, "PLG %s %s %d\n", plid, letter, attempt);
@@ -203,11 +204,17 @@ void play(){    //no server se for letra repetida
     }
 
     status = strtok(NULL, " \n");
-    printf("%s\n", status);
+
+    attempt = atoi(strtok(NULL, " \n"));
 
     if (strcmp(status, "WIN")==0){
-        cout << "GAMEOVER" << endl;//alterar
-        exit(1); 
+        for (int e=0; e<word_len; e++){
+            if (l[2*e]!='_')
+                continue;
+            l[2*e] = toupper(letter[0]);
+        }
+        printf("WELL DONE! YOU GUESSED: %s\n", l);
+        return; 
     }
     else if (strcmp(status, "NOK")==0){
         cout << "Game already ongoing" << endl;
@@ -218,11 +225,10 @@ void play(){    //no server se for letra repetida
         exit(1); 
     }
 
-    attempt = atoi(strtok(NULL, " \n"));
     hits = atoi(strtok(NULL, " \n"));
 
     while ((value = strtok(NULL, " \n"))!=NULL){
-        l[2*(atoi(value)-1)] = letter[0];
+        l[2*(atoi(value)-1)] = toupper(letter[0]);
     }
         
     /*recebe play ou pl e recebe uma letra(nota: case insensitive) do input
@@ -255,6 +261,8 @@ void play(){    //no server se for letra repetida
 void guess(){
     ssize_t n;
     int num;
+    char* f;
+    char* status;
     char* word = strtok(NULL, " \n");
     if (strtok(NULL, " \n")!=NULL || word==NULL){                       //Invalid input format
         cout << "Invalid input format" << endl;
@@ -267,7 +275,7 @@ void guess(){
     memset(msg, 0, BUFFERSIZE);
     attempt++;
     num = sprintf(msg, "PWG %s %s %d\n", plid, word, attempt);
-    printf("SENDING: %s\n", msg);
+    printf("SENDING: %s", msg);
 
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
@@ -283,6 +291,37 @@ void guess(){
     }
 
     printf("RECEIVING: %s", receiving);
+
+    f = strtok(receiving, " \n");;
+
+    if (strcmp(f, "RWG")!=0){
+        cout << "Wrong return message from server to user" << endl;
+        exit(1); 
+    }
+
+    status = strtok(NULL, " \n");
+
+    attempt = atoi(strtok(NULL, " \n"));
+
+    if (strcmp(status, "WIN")==0){
+        for (int e=0; e<word_len; e++){
+            l[2*e] = toupper(word[e]);
+        }
+        printf("WELL DONE! You guessed: %s\n", l);
+        exit(1); 
+    }
+    else if (strcmp(status, "NOK")==0){
+        cout << "Game already ongoing" << endl;
+        exit(1); 
+    }
+    else if (strcmp(status, "OK")!=0){
+        cout << "Unexpected response" << endl;
+        exit(1); 
+    }
+
+    
+
+    
     /*recebe guess ou gw e recebe uma palavra(nota: case insensitive) do input
     
     envia por UDP "PWG plid (palavra) (tentativa)\n"
@@ -291,6 +330,8 @@ void guess(){
 
     printf("output")
     */
+
+
 }
 
 void hint(){

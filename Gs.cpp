@@ -17,6 +17,7 @@
 #include <vector>
 #include <fstream>
 #include <cstring>
+#include <bits/stdc++.h>
 
 
 using namespace std;
@@ -95,6 +96,7 @@ int main(int argc, char *argv[]){
 void start(){
     ssize_t n;
     int num;
+    char status[4];
     plid = create_string(strtok(NULL, " \n"));
     
     choose_word();
@@ -107,8 +109,10 @@ void start(){
         exit(1);
     }
 
+    strcpy(status,"OK");
+
     memset(buffer, 0, BUFFERSIZE);
-    num = sprintf(buffer, "RSG OK %d %d\n", word_len, max_errors);
+    num = sprintf(buffer, "RSG %s %d %d\n", status, word_len, max_errors);
 
     printf("SENDING: %s", buffer);
     addrlen=sizeof(addr);
@@ -125,7 +129,7 @@ void play(){
     int num;
     char* letter;
     char* id;
-    char status[3+1];
+    char status[4];
     char* pos = (char*)calloc((word_len*2), sizeof(char));
     if (pos == NULL){
         perror("Error: ");
@@ -142,13 +146,16 @@ void play(){
     }
     int hits = letter_in_word(word, letter, pos, word_len); 
     thits-=hits;
-    if(thits==0)
-        strcpy(status, "WIN");
-    else
-        strcpy(status, "OK");
-
     memset(buffer, 0, BUFFERSIZE);
-    num = sprintf(buffer, "RLG %s %d %d%s\n", status, attempt, hits, pos);
+    if(thits==0){
+        strcpy(status, "WIN");
+        num = sprintf(buffer, "RLG %s %d\n", status, attempt);
+    }
+    else{
+        strcpy(status,"OK");
+        num = sprintf(buffer, "RLG %s %d %d%s\n", status, attempt, hits, pos);
+    }
+
     printf("SENDING: %s", buffer);
     
     n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
@@ -159,7 +166,42 @@ void play(){
     free(pos);
 }
 
-void guess(){}
+void guess(){
+    ssize_t n;
+    int num;
+    char* guess;
+    char* id;
+    char status[4];
+
+    id = strtok(NULL, " \n");
+    if (strcmp(id, plid)!=0){ //alterar para varios jogadores
+        exit(1);
+    }
+    
+    guess = strtok(NULL, " \n");
+    for (size_t i=0; i<strlen(guess); i++)
+        guess[i]=toupper(guess[i]);
+
+    if(strcmp(guess, word)==0)
+        strcpy(status, "WIN");
+    else
+        strcpy(status,"OK");
+
+    if(attempt+1 == (num=atoi(strtok(NULL, " \n")))){           //rever
+        attempt++;
+    }
+    
+    memset(buffer, 0, BUFFERSIZE);
+    num = sprintf(buffer, "RWG %s %d\n", status, attempt);
+    printf("SENDING: %s", buffer);
+    
+    n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
+    if (n==-1){
+        cout << "Unable to send from server to user" << endl;
+        exit(1); 
+    }
+
+}
 
 void readInput(int argc, char *argv[]){     //adicionar mais verificações
     verbose = 0;
@@ -259,6 +301,7 @@ void choose_word(){
     }
     wordfile.close();
     tmp = tmp.substr(0, tmp.find_first_of(" "));
+    transform(tmp.begin(), tmp.end(), tmp.begin(), ::toupper);
     word = create_string(&tmp[0]);
 }
 
@@ -266,7 +309,7 @@ int letter_in_word(char* word, char* letter, char* pos, int word_len){
     int hits=0;
     char add[3];
     for (int i=0; i<word_len; i++){
-        if (word[i] == letter[0]){
+        if (tolower(word[i]) == tolower(letter[0])){
             hits++;
             sprintf(add, " %d", i+1);
             strcat(pos, add);
