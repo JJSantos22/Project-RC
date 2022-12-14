@@ -39,6 +39,7 @@ char *plid;     //free no fim
 char *wfile;    //free no fim
 int lines=0;
 int thits;
+int errors;
 ifstream wordfile;
 
 struct addrinfo hintsClientUDP,*resClientUDP;
@@ -122,6 +123,7 @@ void start(){
         exit(1); 
     }
     attempt=0;
+    errors=0;
 }
 
 void play(){
@@ -141,20 +143,30 @@ void play(){
         exit(1);
     }
     letter = strtok(NULL, " \n");
-    if(attempt+1 == (num=atoi(strtok(NULL, " \n")))){           //rever
+    if (attempt+1 == (num=atoi(strtok(NULL, " \n")))){           //rever
         attempt++;
     }
     int hits = letter_in_word(word, letter, pos, word_len); 
     thits-=hits;
     memset(buffer, 0, BUFFERSIZE);
-    if(thits==0){
+    if (thits==0){
         strcpy(status, "WIN");
         num = sprintf(buffer, "RLG %s %d\n", status, attempt);
     }
-    else{
-        strcpy(status,"OK");
-        num = sprintf(buffer, "RLG %s %d %d%s\n", status, attempt, hits, pos);
+    else if (hits==0){
+        errors++;
+        if (errors>=max_errors){
+            strcpy(status,"OVR");
+            num = sprintf(buffer, "RLG %s %d %d\n", status, attempt, hits);
+        }
+            
+        else {
+            strcpy(status,"NOK");
+            num = sprintf(buffer, "RLG %s %d %d\n", status, attempt, hits);
+        }
     }
+    else
+        num = sprintf(buffer, "RLG %s %d %d%s\n", status, attempt, hits, pos);
 
     printf("SENDING: %s", buffer);
     

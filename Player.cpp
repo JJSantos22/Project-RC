@@ -217,8 +217,12 @@ void play(){    //no server se for letra repetida
         return; 
     }
     else if (strcmp(status, "NOK")==0){
-        cout << "Game already ongoing" << endl;
-        exit(1); 
+        printf("No,\"%s\" is not part of the word: %s\n", letter, l);
+        return;; 
+    }
+    else if (strcmp(status, "OVR")==0){
+        printf("No,\"%s\" is not part of the word: %s\nNO MORE TRIES... GAME OVER...\n", letter, l);
+        return;
     }
     else if (strcmp(status, "OK")!=0){
         cout << "Unexpected response" << endl;
@@ -227,8 +231,10 @@ void play(){    //no server se for letra repetida
 
     hits = atoi(strtok(NULL, " \n"));
 
-    while ((value = strtok(NULL, " \n"))!=NULL){
+    while (hits > 0){
+        value = strtok(NULL, " \n");
         l[2*(atoi(value)-1)] = toupper(letter[0]);
+        hits--;
     }
         
     /*recebe play ou pl e recebe uma letra(nota: case insensitive) do input
@@ -246,16 +252,7 @@ void play(){    //no server se for letra repetida
 
     //verificar o estado (OK, WIN, DUP, NOK, OVR, INV, ERR)
     //Se for OK , metemos nas posições recebidas, a letra correta
-    if (hits>0){
-        printf("Yes,\"%s\" is part of the word: %s\n", letter, l);
-    }
-    else 
-        printf("No,\"%s\" is not part of the word: %s\n", letter, l);
-    
-
-    
-    
-
+    printf("Yes,\"%s\" is part of the word: %s\n", letter, l);
 }
 
 void guess(){
