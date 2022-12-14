@@ -17,7 +17,7 @@ using namespace std;
 
 #define GN 60
 #define IP "tejo.tecnico.ulisboa.pt"
-#define PORT "58011"
+#define PORT 58000
 #define BUFFERSIZE 128
 
 char* plid;                     //Verificar necessidade
@@ -92,6 +92,7 @@ int main(int argc, char* argv[]){
 
 void start(){
     ssize_t n;
+    int i;
     int num;
     char* splid = strtok(NULL, " \n");
     char f[3];
@@ -142,12 +143,17 @@ void start(){
     
     attempt = 0;
 
-    l = (char *)malloc(2*word_len*sizeof(char));
+    l = (char *)malloc((2*word_len+1)*sizeof(char));
+    if (l == NULL){
+        perror("Error: ");
+        exit(1);
+    }
     l[0] = '_';
-    for (int i=1; i < word_len; i++){
+    for (i=1; i < word_len; i++){
         l[2*i-1] = ' ';
         l[2*i] = '_';
     }
+    l[2*i+1]='\0';
     printf("New game started (max %d errors): %s\n", max_errors, l);
     plid = create_string(splid);
 
@@ -324,8 +330,12 @@ void exit(){
 }
 
 void readStartingInput(int argc, char *argv[]){
+    char dport[BUFFERSIZE];
+    memset(dport, 0, BUFFERSIZE);
+    sprintf(dport, "%d", GN+PORT);
     gethostname(buffer, BUFFERSIZE);
     GSip = create_string(buffer);
+    GSport = create_string(dport);
     for (int e = 1; e < argc; e++) {
         if (argv[e][0] == '-'){
             if (argv[e][1] == 'n'){
@@ -334,6 +344,7 @@ void readStartingInput(int argc, char *argv[]){
                 e++;
             }
             else if (argv[e][1] == 'p'){
+                free(GSport);
                 GSport = create_string(argv[e+1]);
                 e++;
             }
@@ -389,5 +400,6 @@ char* create_string(char* p){
         exit(1);
     }
     strcpy(string, p);
+    string[strlen(p)+1]='\0';
     return string;
 }

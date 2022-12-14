@@ -22,7 +22,7 @@
 using namespace std;
 
 #define GN 60
-#define PORT "58011"
+#define PORT 58000
 #define BUFFERSIZE 128
 
 //Global Variables
@@ -36,6 +36,7 @@ int attempt;
 char *word; 
 char *plid;
 int thits;
+char* wordfile;
 
 struct addrinfo hintsClientUDP,*resClientUDP;
 int fdClientUDP,errcode;
@@ -96,7 +97,7 @@ void start(){
     plid = create_string(strtok(NULL, " \n"));
     
     choose_word();
-    printf("W:%s\n",word);
+    printf("W: %s\n",word);
     word_len = strlen(word); 
     thits=word_len;
     max_errors = get_max_errors(word);
@@ -126,12 +127,11 @@ void play(){
     }
 
     id = strtok(NULL, " \n");
-    if (strcmp(id, plid)!=0){ //alterar talvez
+    if (strcmp(id, plid)!=0){ //alterar para varios jogadores
         exit(1);
     }
     letter = strtok(NULL, " \n");
-    printf("letter:%s\n",letter);
-    if(attempt+1 == (num=atoi(strtok(NULL, " \n")))){
+    if(attempt+1 == (num=atoi(strtok(NULL, " \n")))){           //rever
         attempt++;
     }
     int hits = letter_in_word(word, letter, pos, word_len); 
@@ -155,21 +155,34 @@ void play(){
 
 void guess(){}
 
-void readInput(int argc, char *argv[]){
+void readInput(int argc, char *argv[]){     //adicionar mais verificações
     verbose = 0;
-    if (argc)
-    for (int e = 1; e < argc; e++) {
+    if (argc<2 || argc>5){
+        printf("\nWrong number of arguments\n");
+        exit(1);
+    }
+    wordfile = create_string(argv[1]);
+    char dport[BUFFERSIZE];
+    memset(dport, 0, BUFFERSIZE);
+    sprintf(dport, "%d", GN+PORT);
+    GSport = create_string(dport);
+    for (int e = 2; e < argc; e++) {
         if (argv[e][0] == '-'){
-            if (argv[e][1] == 'n'){
+            if (argv[e][1] == 'p'){         //alterar para verificar default
+                free(GSport);
                 GSport = create_string(argv[e+1]);
                 e++;
             }
-            else if (argv[e][1] == 'v'){
+            else if (argv[e][1] == 'v'){    
                 verbose=1;
             }
         }
-        else
+        else{
             printf("\nWrong format in: %s (input argument)\n", argv[e]);
+            exit(1);
+        }
+            
+
     }
     
 }
@@ -218,15 +231,15 @@ char* create_string(char* p){
     return string;
 }
 
-void choose_word()//REVER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+void choose_word()//Descobrir se ficheiro deve executar com nome de wordfile errado
 {
     srand(time(0));
     int val;
 
-    std::ifstream plik("word_eng.txt");
+    std::ifstream plik(wordfile);
 
     if (!plik) {
-        std::cerr << "not working";
+        cout << "Error getting word file" << endl;
         exit(1);
     }
     
