@@ -43,6 +43,7 @@ int thits;
 int errors;
 ifstream wordfile;
 
+struct timeval t;
 struct addrinfo hintsClientTCP,*resClientTCP;
 struct addrinfo hintsClientUDP,*resClientUDP;
 int newfd,fdClientUDP,fdClientTCP, errcode;
@@ -62,6 +63,7 @@ void hint();
 int get_max_errors(char* word);
 void choose_word();
 int letter_in_word(char* word, char* letter, char* pos, int word_len);
+void sendTCP(int fd, char* buffer, ssize_t buffer_len);
 
 int main(int argc, char *argv[]){
     readInput(argc, argv);
@@ -319,15 +321,20 @@ void initGSTCP(){
     if(n==-1) /*error*/ 
         exit(1);
 
-    if(listen(fdClientTCP,5)==-1)
+    if(listen(fdClientTCP,5) == -1)
         exit(1);
 
 }
 
 void initDB(){
     DIR *dir;
-    if ((dir = opendir("USERS")) == NULL)
-        mkdir("USERS", 0777);
+    if ((dir = opendir("GAME")) == NULL)
+        mkdir("GAME", 0777);
+    else
+        closedir(dir);
+
+    if ((dir = opendir("SCORE")) == NULL)
+        mkdir("SCORE", 0777);
     else
         closedir(dir);
 }
@@ -392,6 +399,20 @@ int get_max_errors(char *word){
         return -1;
 
     return max_errors;
+}
+
+void sendTCP(int fd, char* buffer, ssize_t buffer_len){
+    ssize_t nleft, nwritten;
+    char* ptr;
+    ptr = &buffer[0];
+    nleft=buffer_len;
+    while(nleft>0){
+        nwritten=write(fd,ptr,nleft);
+        if(nwritten<=0)/*error*/
+            exit(1);
+        nleft-=nwritten;
+        ptr+=nwritten;
+    }
 }
 
 

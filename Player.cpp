@@ -34,6 +34,7 @@ char receiving[BUFFERSIZE];
 socklen_t addrlen;
 char *l;
 
+struct timeval t;
 struct addrinfo hintsServerTCP,*resServerTCP;
 struct addrinfo hintsServerUDP,*resServerUDP;
 int fdServerUDP,errcode, fdServerTCP;
@@ -422,6 +423,15 @@ void initUDP(){
     errcode = getaddrinfo(GSip, GSport, &hintsServerUDP, &resServerUDP);
     if (errcode!=0)
         exit(1);
+
+    t.tv_sec = 4;
+    t.tv_usec = 0;
+
+    if(setsockopt(fdServerUDP, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof(t))!=0){
+        perror("setsockopt");
+        exit(1);
+    }
+
 }
 
 void initTCP(){
