@@ -42,6 +42,8 @@ int fdServerUDP,errcode, fdServerTCP;
 void readStartingInput(int argc, char* argv[]);
 void initUDP();
 void initTCP();
+void sendTCP(int fd, char* buffer, ssize_t buffer_len);
+void readTCP(int fd, char *buffer, ssize_t len);
 void start();
 void play();
 void guess();
@@ -290,7 +292,7 @@ void guess(){
 
     printf("RECEIVING: %s", receiving);
 
-    f = strtok(receiving, " \n");;
+    f = strtok(receiving, " \n");
 
     if (strcmp(f, "RWG")!=0){
         cout << "Wrong return message from server to user" << endl;
@@ -335,6 +337,11 @@ void guess(){
 void hint(){
     ssize_t n;
     int num;
+    char* f;
+    char* status;
+    char* fname;
+    char* sfsize;
+    int fsize;
     memset(msg,0,BUFFERSIZE);
     num = sprintf(msg, "GHL %s\n", plid);
     printf("SENDING: %s", msg);
@@ -344,11 +351,32 @@ void hint(){
         exit(1); 
     }
 
-    n = write(fdServerTCP,msg,num);
-    if(n==-1){
-        cout << "Unable to write from user to server" << endl;
+    sendTCP(fdServerTCP,msg,num);
+    memset(receiving, 0, BUFFERSIZE);
+    readTCP(fdServerTCP, receiving, BUFFERSIZE);
+    close(fdServerTCP);
+
+    f = strtok(receiving, " \n");
+
+    if (strcmp(f, "RHL")!=0){
+        cout << "Wrong return message from server to user" << endl;
         exit(1); 
     }
+
+    status = strtok(NULL, " \n");
+
+    if (strcmp(status, "NOK")==0){
+        cout << "Error getting hint" << endl;
+        return; 
+    }
+    else if (strcmp(status, "OK")!=0){
+        cout << "Unexpected response" << endl;
+        exit(1); 
+    }
+    fname = strtok(NULL, " \n");
+
+
+    sfsize = strtok(NULL, " \n");
 
     /*recebe hint ou h do input
     
@@ -424,7 +452,7 @@ void initUDP(){
     if (errcode!=0)
         exit(1);
 
-    t.tv_sec = 4;
+    t.tv_sec = 5;
     t.tv_usec = 0;
 
     if(setsockopt(fdServerUDP, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof(t))!=0){
@@ -473,4 +501,34 @@ char* create_string(char* p){
     strcpy(string, p);
     string[strlen(p)+1]='\0';
     return string;
+}
+
+void sendTCP(int fd, char* buffer, ssize_t buffer_len){
+    ssize_t nleft, nwritten;
+    char* ptr;
+    ptr = &buffer[0];
+    nleft=buffer_len;
+    while(nleft>0){
+        nwritten=write(fd,ptr,nleft);
+        if(nwritten<=0)/*error*/
+            exit(1);
+        nleft-=nwritten;
+        ptr+=nwritten;
+    }
+}
+
+void readTCP(int fd, char *buffer, ssize_t len){
+    char* ptr;
+    ssize_t nleft, nread;
+    nleft=len; 
+    ptr=buffer;
+    while(nleft>0){
+        nread=read(fd,ptr,nleft);
+        if(nread==-1)/*error*/
+            exit(1);
+        else if(nread==0)
+            break;//closed by peer
+        nleft-=nread;
+        ptr+=nread;}
+        nread=len-nleft;
 }
