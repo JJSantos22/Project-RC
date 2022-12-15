@@ -35,6 +35,7 @@ char buffer[BUFFERSIZE];
 char receiving[BUFFERSIZE];
 int attempt;
 char *word;     //free no fim
+char *hintpic;     //free no fim
 char *plid;     //free no fim
 char *wfile;    //free no fim
 int lines=0;
@@ -42,8 +43,9 @@ int thits;
 int errors;
 ifstream wordfile;
 
+struct addrinfo hintsClientTCP,*resClientTCP;
 struct addrinfo hintsClientUDP,*resClientUDP;
-int fdClientUDP,errcode;
+int newfd,fdClientUDP,fdClientTCP, errcode;
 
 socklen_t addrlen;
 struct sockaddr_in addr;
@@ -56,6 +58,7 @@ void initDB();
 void start();
 void play();
 void guess();
+void hint();
 int get_max_errors(char* word);
 void choose_word();
 int letter_in_word(char* word, char* letter, char* pos, int word_len);
@@ -63,7 +66,7 @@ int letter_in_word(char* word, char* letter, char* pos, int word_len);
 int main(int argc, char *argv[]){
     readInput(argc, argv);
     initGSUDP();
-    //initTCP();
+    initGSTCP();
 
     fd_set readfds;
     char* op;
@@ -72,6 +75,7 @@ int main(int argc, char *argv[]){
         ssize_t n;
         FD_ZERO(&readfds);
         FD_SET(fdClientUDP, &readfds);
+        FD_SET(fdClientTCP, &readfds);
         if (FD_ISSET(fdClientUDP, &readfds)){
             addrlen=sizeof(addr);
             memset(receiving, 0, BUFFERSIZE);
@@ -84,13 +88,20 @@ int main(int argc, char *argv[]){
                 start();
             else if (strcmp(op, "PLG")==0)
                 play();
-           else if (strcmp(op, "PWG")==0)
+            else if (strcmp(op, "PWG")==0)
                 guess();
         }
+        else if (FD_ISSET(fdClientTCP, &readfds)){
+            addrlen=sizeof(addr);
+            if((newfd=accept(fdClientTCP,(struct sockaddr*)&addr,&addrlen))==-1)
+                exit(1);
+                //                                 verificar o hint
+                /* if (strcmp(op, "GHL")==0)
+                hint(); */
+        }
+            
     }
     
-    initGSTCP();
-    initDB();
 
 }
 
@@ -165,8 +176,11 @@ void play(){
             num = sprintf(buffer, "RLG %s %d %d\n", status, attempt, hits);
         }
     }
-    else
+    else{
+        strcpy(status,"OK");
         num = sprintf(buffer, "RLG %s %d %d%s\n", status, attempt, hits, pos);
+    }
+        
 
     printf("SENDING: %s", buffer);
     
@@ -214,6 +228,16 @@ void guess(){
     }
 
 }
+
+void hint(){
+    
+
+
+
+
+    
+}
+
 
 void readInput(int argc, char *argv[]){     //adicionar mais verificações
     verbose = 0;
@@ -276,7 +300,29 @@ void initGSUDP(){
     
 }
 
-void initGSTCP(){}
+void initGSTCP(){
+    int n;
+
+    fdClientTCP = socket(AF_INET, SOCK_STREAM, 0); //TCP socket
+    if(fdClientTCP == -1)
+        exit(1);
+    memset(&hintsClientTCP,0,sizeof hintsClientTCP);
+    hintsClientTCP.ai_family=AF_INET;
+    hintsClientTCP.ai_socktype=SOCK_STREAM;
+    hintsClientTCP.ai_flags=AI_PASSIVE;
+
+    errcode = getaddrinfo (NULL,GSport, &hintsClientTCP, &resClientTCP);
+    if(errcode!=0) /*error*/ 
+        exit(1);
+
+    n = bind(fdClientTCP,resClientTCP->ai_addr,resClientTCP->ai_addrlen);
+    if(n==-1) /*error*/ 
+        exit(1);
+
+    if(listen(fdClientTCP,5)==-1)
+        exit(1);
+
+}
 
 void initDB(){
     DIR *dir;
@@ -299,29 +345,31 @@ char* create_string(char* p){
 void choose_word(){
     srand((unsigned) time(0));
     int val = rand() % lines;
-    string tmp;
+    string tmp, w, h;
     int e=0;
 
-    ifstream wordfile(wfile);
-    if (!wordfile) {
+    ifstream wordfile(wfile);   
+    if (!wordfile) {            
         cout << "No word file was found" << endl;
         exit(1);
     }
-    while (e<=val){
+    while (e<=val){            
         getline(wordfile, tmp);
         e++;
     }
     wordfile.close();
-    tmp = tmp.substr(0, tmp.find_first_of(" "));
-    transform(tmp.begin(), tmp.end(), tmp.begin(), ::toupper);
-    word = create_string(&tmp[0]);
+    w = tmp.substr(0, tmp.find_first_of(" "));
+    h = tmp.substr(tmp.find_first_of(" "), tmp.length()-1);
+    transform(w.begin(), w.end(), w.begin(), ::toupper);
+    word = create_string(&w[0]);
+    hintpic = create_string(&h[0]);
 }
 
 int letter_in_word(char* word, char* letter, char* pos, int word_len){
     int hits=0;
     char add[3];
     for (int i=0; i<word_len; i++){
-        if (tolower(word[i]) == tolower(letter[0])){
+        if (toupper(word[i]) == toupper(letter[0])){
             hits++;
             sprintf(add, " %d", i+1);
             strcat(pos, add);

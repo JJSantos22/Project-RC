@@ -34,9 +34,9 @@ char receiving[BUFFERSIZE];
 socklen_t addrlen;
 char *l;
 
-
+struct addrinfo hintsServerTCP,*resServerTCP;
 struct addrinfo hintsServerUDP,*resServerUDP;
-int fdServerUDP,errcode;
+int fdServerUDP,errcode, fdServerTCP;
 
 void readStartingInput(int argc, char* argv[]);
 void initUDP();
@@ -53,7 +53,7 @@ int main(int argc, char* argv[]){
     char *f;
     readStartingInput(argc, argv);
     initUDP();
-    //initTCP();
+    initTCP();
 
     while (1){
         memset(buffer, 0, BUFFERSIZE);
@@ -218,7 +218,7 @@ void play(){    //no server se for letra repetida
     }
     else if (strcmp(status, "NOK")==0){
         printf("No,\"%s\" is not part of the word: %s\n", letter, l);
-        return;; 
+        return;
     }
     else if (strcmp(status, "OVR")==0){
         printf("No,\"%s\" is not part of the word: %s\nNO MORE TRIES... GAME OVER...\n", letter, l);
@@ -308,8 +308,8 @@ void guess(){
         exit(1); 
     }
     else if (strcmp(status, "NOK")==0){
-        cout << "Game already ongoing" << endl;
-        exit(1); 
+        cout << "Wrong guess" << endl;
+        return; 
     }
     else if (strcmp(status, "OK")!=0){
         cout << "Unexpected response" << endl;
@@ -332,6 +332,23 @@ void guess(){
 }
 
 void hint(){
+    ssize_t n;
+    int num;
+    memset(msg,0,BUFFERSIZE);
+    num = sprintf(msg, "GHL %s\n", plid);
+    printf("SENDING: %s", msg);
+    n = connect(fdServerTCP, (struct sockaddr*)resServerTCP->ai_addr,resServerTCP->ai_addrlen);
+    if(n==-1){
+        cout << "Unable to connect from user to server" << endl;
+        exit(1); 
+    }
+
+    n = write(fdServerTCP,msg,num);
+    if(n==-1){
+        cout << "Unable to write from user to server" << endl;
+        exit(1); 
+    }
+
     /*recebe hint ou h do input
     
     estabelece uma conexão TCP
@@ -408,7 +425,16 @@ void initUDP(){
 }
 
 void initTCP(){
+    fdServerTCP=socket(AF_INET,SOCK_STREAM,0);
+    if (fdServerTCP==-1) exit(1); //error
 
+    memset(&hintsServerTCP,0,sizeof hintsServerTCP);
+    hintsServerTCP.ai_family=AF_INET;
+    hintsServerTCP.ai_socktype=SOCK_DGRAM;
+
+    errcode= getaddrinfo(GSip, GSport, &hintsServerTCP, &resServerTCP);
+    if(errcode!=0)/*error*/
+        exit(1);
 }
 
 bool validPLID(char *string)
