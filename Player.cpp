@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include "utils.h"
+#include <fstream>
 
 
 using namespace std;
@@ -42,7 +43,7 @@ int fdServerUDP,errcode, fdServerTCP;
 void readStartingInput(int argc, char* argv[]);
 void initUDP();
 void initTCP();
-void sendTCP(int fd, char* buffer, ssize_t buffer_len);
+void writeTCP(int fd, char* buffer, ssize_t buffer_len);
 void readTCP(int fd, char *buffer, ssize_t len);
 void start();
 void play();
@@ -335,6 +336,8 @@ void guess(){
 }
 
 void hint(){
+
+    ifstream image;
     ssize_t n;
     int num;
     char* f;
@@ -351,7 +354,7 @@ void hint(){
         exit(1); 
     }
 
-    sendTCP(fdServerTCP,msg,num);
+    writeTCP(fdServerTCP,msg,num);
     memset(receiving, 0, BUFFERSIZE);
     readTCP(fdServerTCP, receiving, BUFFERSIZE);
     close(fdServerTCP);
@@ -373,10 +376,14 @@ void hint(){
         cout << "Unexpected response" << endl;
         exit(1); 
     }
+    
     fname = strtok(NULL, " \n");
 
-
     sfsize = strtok(NULL, " \n");
+
+
+
+    image.open(fname); //abre a foto da hint
 
     /*recebe hint ou h do input
     
@@ -384,7 +391,7 @@ void hint(){
     
     envia "GHL (plid)\n"
     
-    recebe "RHL (status) (link)\n"
+    recebe "RHL (status) (Fname Fsize Fdata)\n"
     */
 }
 
@@ -503,7 +510,7 @@ char* create_string(char* p){
     return string;
 }
 
-void sendTCP(int fd, char* buffer, ssize_t buffer_len){
+void writeTCP(int fd, char* buffer, ssize_t buffer_len){
     ssize_t nleft, nwritten;
     char* ptr;
     ptr = &buffer[0];

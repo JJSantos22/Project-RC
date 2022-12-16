@@ -52,6 +52,7 @@ socklen_t addrlen;
 struct sockaddr_in addr;
 
 void readInput(int argc, char *argv[]);
+void tcp_operations();
 char* create_string(char* p);
 void initGSUDP();
 void initGSTCP();
@@ -63,7 +64,9 @@ void hint();
 int get_max_errors(char* word);
 void choose_word();
 int letter_in_word(char* word, char* letter, char* pos, int word_len);
-void sendTCP(int fd, char* buffer, ssize_t buffer_len);
+void writeTCP(int fd, char* buffer, ssize_t buffer_len);
+void readTCP(int fd, char *buffer, ssize_t len);
+
 
 int main(int argc, char *argv[]){
     readInput(argc, argv);
@@ -72,6 +75,7 @@ int main(int argc, char *argv[]){
 
     fd_set readfds;
     char* op;
+    int val, ver;
 
     while (1){
         ssize_t n;
@@ -97,9 +101,16 @@ int main(int argc, char *argv[]){
             addrlen=sizeof(addr);
             if((newfd=accept(fdClientTCP,(struct sockaddr*)&addr,&addrlen))==-1)
                 exit(1);
-                //                                 verificar o hint
-                /* if (strcmp(op, "GHL")==0)
-                hint(); */
+            if ((val=fork())<0){
+                cout << "Creation of a child process was unsuccessful" << endl;
+                exit(1);
+            }
+            else if(val==0)
+                tcp_operations();
+            
+            ver = close(newfd);
+            if (ver == -1)
+                exit(1);
                 //------------------------------------------------------------------------------
                 //-----------------------IN PROGRESS--------------------------------------------
                 //------------------------------------------------------------------------------
@@ -235,7 +246,13 @@ void guess(){
 }
 
 void hint(){
-    
+    char* id;
+    id = strtok(NULL, " \n");
+    if (strcmp(id, plid)!=0){ //procura por jogador e seu jogo
+        exit(1);
+    }
+    printf("HP: %s", hintpic);
+
 
 
 
@@ -404,7 +421,7 @@ int get_max_errors(char *word){
     return max_errors;
 }
 
-void sendTCP(int fd, char* buffer, ssize_t buffer_len){
+void writeTCP(int fd, char* buffer, ssize_t buffer_len){
     ssize_t nleft, nwritten;
     char* ptr;
     ptr = &buffer[0];
@@ -418,5 +435,24 @@ void sendTCP(int fd, char* buffer, ssize_t buffer_len){
     }
 }
 
+void readTCP(int fd, char *buffer, ssize_t len){
+    char* ptr;
+    ssize_t nleft, nread;
+    nleft=len; 
+    ptr=buffer;
+    while(nleft>0){
+        nread=read(fd,ptr,nleft);
+        if(nread==-1)/*error*/
+            exit(1);
+        else if(nread==0)
+            break;//closed by peer
+        nleft-=nread;
+        ptr+=nread;}
+        nread=len-nleft;
+}
+
+void tcp_operations(){
+    
+}
 
 
