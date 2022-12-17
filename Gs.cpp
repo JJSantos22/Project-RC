@@ -18,6 +18,7 @@
 #include <fstream>
 #include <cstring>
 #include <bits/stdc++.h>
+#include <algorithm>
 
 
 using namespace std;
@@ -25,6 +26,14 @@ using namespace std;
 #define GN 60
 #define PORT 58000
 #define BUFFERSIZE 128
+
+struct game{
+    int attempt;
+    int errors;
+    char* word;
+    char* hintpic;
+    char* plid;
+};
 
 //Global Variables
 int verbose;
@@ -35,7 +44,7 @@ char buffer[BUFFERSIZE];
 char receiving[BUFFERSIZE];
 int attempt;
 char *word;     //free no fim
-char *hintpic;     //free no fim
+char *hintpic;  //free no fim
 char *plid;     //free no fim
 char *wfile;    //free no fim
 int lines=0;
@@ -52,7 +61,7 @@ socklen_t addrlen;
 struct sockaddr_in addr;
 
 void readInput(int argc, char *argv[]);
-void tcp_operations();
+void TCP_operations(int newfd);
 char* create_string(char* p);
 void initGSUDP();
 void initGSTCP();
@@ -60,11 +69,13 @@ void initDB();
 void start();
 void play();
 void guess();
+void state();
 void hint();
+void scoreboard();
 int get_max_errors(char* word);
 void choose_word();
 int letter_in_word(char* word, char* letter, char* pos, int word_len);
-void writeTCP(int fd, char* buffer, ssize_t buffer_len);
+void writeTCP(int fd, char buffer[], ssize_t buffer_len);
 void readTCP(int fd, char *buffer, ssize_t len);
 
 
@@ -75,20 +86,27 @@ int main(int argc, char *argv[]){
 
     fd_set readfds;
     char* op;
-    int val, ver;
+    int val, ver, m, choice;
 
     while (1){
         ssize_t n;
+        
         FD_ZERO(&readfds);
         FD_SET(fdClientUDP, &readfds);
         FD_SET(fdClientTCP, &readfds);
+        m=max(fdClientTCP, fdClientUDP);
+        choice=select(m+1, &readfds, (fd_set*) NULL, (fd_set*) NULL, (timeval*) NULL);
+
+        if (choice <= 0)
+            exit(1);
+
         if (FD_ISSET(fdClientUDP, &readfds)){
             addrlen=sizeof(addr);
             memset(receiving, 0, BUFFERSIZE);
             n=recvfrom(fdClientUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
             if (n==-1)
                 exit(1);
-            printf("RECEIVING: %s", receiving);
+            printf("RECEIVING UDP: %s", receiving);
             op = strtok(receiving, " \n");
             if (strcmp(op, "SNG")==0)
                 start();
@@ -105,20 +123,16 @@ int main(int argc, char *argv[]){
                 cout << "Creation of a child process was unsuccessful" << endl;
                 exit(1);
             }
-            else if(val==0)
-                tcp_operations();
-            
+            else if(val==0){
+                cout << "Creation of a child process was successful" << endl;
+                printf("fork: %s\n", hintpic);
+                TCP_operations(newfd);
+            }
             ver = close(newfd);
             if (ver == -1)
                 exit(1);
-                //------------------------------------------------------------------------------
-                //-----------------------IN PROGRESS--------------------------------------------
-                //------------------------------------------------------------------------------
-        }
-            
+        }    
     }
-    
-
 }
 
 void start(){
@@ -128,6 +142,7 @@ void start(){
     plid = create_string(strtok(NULL, " \n"));
     
     choose_word();
+    printf("main: %s\n", hintpic);
     printf("W: %s\n",word);
     word_len = strlen(word); 
     thits=word_len;
@@ -246,18 +261,63 @@ void guess(){
 }
 
 void hint(){
+    printf("HP: %s\n", hintpic);
     char* id;
     id = strtok(NULL, " \n");
     if (strcmp(id, plid)!=0){ //procura por jogador e seu jogo
         exit(1);
     }
-    printf("HP: %s", hintpic);
-
-
-
-
-
     
+    
+
+    /*
+    int n = 0;
+    int siz = 0;
+    FILE *picture;
+    char buf[50];
+    char *s="";
+
+    cout << "Getting image size" << endl;
+    picture = fopen("C:\\Users\\n.b\\Desktop\\c++\\TCP\\tcp_client_image_pp\\test.jpg", "r"); 
+    fseek(picture, 0, SEEK_END);
+    siz = ftell(picture);
+    cout << siz << endl; // Output 880
+
+    cout << "Sending picture size to the server" << endl;
+    sprintf(buf, "%d", siz);
+    if((n = send(sock, buf, sizeof(buf), 0)) < 0)
+    {
+            perror("send_size()");
+            exit(errno);
+    }
+
+    char Sbuf[siz];
+    cout << "Sending the picture as byte array" << endl;
+    fseek(picture, 0, SEEK_END);
+    siz = ftell(picture);
+    fseek(picture, 0, SEEK_SET); //Going to the beginning of the file
+
+    while(!feof(picture)){
+        fread(Sbuf, sizeof(char), sizeof(Sbuf), picture);
+        if((n = send(sock, Sbuf, sizeof(Sbuf), 0)) < 0)
+        {
+            perror("send_size()");
+            exit(errno);
+        }
+        memset(Sbuf, 0, sizeof(Sbuf));
+    }
+    */
+}
+
+
+
+
+void scoreboard(){
+
+}
+
+void state(){
+
 }
 
 
@@ -276,7 +336,7 @@ void readInput(int argc, char *argv[]){     //adicionar mais verificações
         exit(1);
     }
     while (getline(wordfile, tmp))
-        lines++;                            //contar número de linhas
+        lines++;                           
     wordfile.close();
     
     char dport[BUFFERSIZE];
@@ -333,16 +393,17 @@ void initGSTCP(){
     hintsClientTCP.ai_socktype=SOCK_STREAM;
     hintsClientTCP.ai_flags=AI_PASSIVE;
 
-    errcode = getaddrinfo (NULL,GSport, &hintsClientTCP, &resClientTCP);
+    errcode = getaddrinfo (NULL, GSport, &hintsClientTCP, &resClientTCP);
     if(errcode!=0) /*error*/ 
         exit(1);
 
-    n = bind(fdClientTCP,resClientTCP->ai_addr,resClientTCP->ai_addrlen);
+    n = bind(fdClientTCP, resClientTCP->ai_addr, resClientTCP->ai_addrlen);
     if(n==-1) /*error*/ 
         exit(1);
 
     if(listen(fdClientTCP,5) == -1)
         exit(1);
+
 
 }
 
@@ -386,7 +447,7 @@ void choose_word(){
     }
     wordfile.close();
     w = tmp.substr(0, tmp.find_first_of(" "));
-    h = tmp.substr(tmp.find_first_of(" "), tmp.length()-1);
+    h = tmp.substr(tmp.find_first_of(" ")+1, tmp.length()-1);
     transform(w.begin(), w.end(), w.begin(), ::toupper);
     word = create_string(&w[0]);
     hintpic = create_string(&h[0]);
@@ -421,11 +482,10 @@ int get_max_errors(char *word){
     return max_errors;
 }
 
-void writeTCP(int fd, char* buffer, ssize_t buffer_len){
+void writeTCP(int fd, char buffer[], ssize_t buffer_len){
     ssize_t nleft, nwritten;
-    char* ptr;
-    ptr = &buffer[0];
-    nleft=buffer_len;
+    char* ptr = &buffer[0];
+    nleft = buffer_len;
     while(nleft>0){
         nwritten=write(fd,ptr,nleft);
         if(nwritten<=0)/*error*/
@@ -433,26 +493,53 @@ void writeTCP(int fd, char* buffer, ssize_t buffer_len){
         nleft-=nwritten;
         ptr+=nwritten;
     }
+    printf("SENDING TCP: %s", buffer);
 }
 
-void readTCP(int fd, char *buffer, ssize_t len){
-    char* ptr;
-    ssize_t nleft, nread;
-    nleft=len; 
-    ptr=buffer;
-    while(nleft>0){
-        nread=read(fd,ptr,nleft);
-        if(nread==-1)/*error*/
-            exit(1);
-        else if(nread==0)
-            break;//closed by peer
-        nleft-=nread;
-        ptr+=nread;}
-        nread=len-nleft;
-}
+void TCP_operations(int fd){
+    int n, total;
 
-void tcp_operations(){
+	freeaddrinfo(resClientTCP);
+	close(fdClientTCP);
+
     
+    char* f;
+    char* ptr;
+
+    while (1){
+        memset(receiving, 0, BUFFERSIZE);
+        ptr=&receiving[0];
+        total=0;
+
+        while ((n=read(fd, ptr, BUFFERSIZE-total))!=0){
+            if (n == -1){
+                exit(1);
+            }
+            ptr += n;
+            total += n;
+            if (*(ptr-1) == '\n')
+                break;
+        }
+        if (n == 0)
+            break;
+
+        printf("Receiving: %s", receiving); 
+        f = strtok(receiving, " \n");
+        printf("F:%s\n",f);
+        if (strcmp(f, "GSB")==0)
+            scoreboard();
+        else if (strcmp(f, "GHL")==0){
+            printf("fora: %s\n", hintpic);
+            hint();
+        }
+        else if (strcmp(f, "STA")==0)
+            state();
+        else {
+            memset(buffer, 0, BUFFERSIZE);
+            strcpy(buffer, "ERR\n");
+            writeTCP(fd, buffer, 4);
+        }
+    close(fd);
+    }
+
 }
-
-

@@ -43,7 +43,8 @@ int fdServerUDP,errcode, fdServerTCP;
 void readStartingInput(int argc, char* argv[]);
 void initUDP();
 void initTCP();
-void writeTCP(int fd, char* buffer, ssize_t buffer_len);
+void connectTCP();
+void writeTCP(int fd, char buffer[], ssize_t buffer_len);
 void readTCP(int fd, char *buffer, ssize_t len);
 void start();
 void play();
@@ -58,6 +59,7 @@ int main(int argc, char* argv[]){
     readStartingInput(argc, argv);
     initUDP();
     initTCP();
+    connectTCP();
 
     while (1){
         memset(buffer, 0, BUFFERSIZE);
@@ -101,14 +103,14 @@ void start(){
     char* splid = strtok(NULL, " \n");
     char f[3];
     char conf[3];
-    if (strtok(NULL, " \n")!=NULL || splid==NULL){                     //Invalid input format
+    /* if (strtok(NULL, " \n")!=NULL || splid==NULL){                     //Invalid input format
         cout << "Invalid input format" << endl;
         return;
     }
     if (strlen(splid)!=6 || !validPLID(splid)){ 
         cout << "Invalid ID" << endl;
         return;
-    }
+    } */
 
     memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "SNG %s\n", splid);
@@ -120,7 +122,7 @@ void start(){
     }
 
     addrlen=sizeof(addr);
-    memset(receiving, 0, BUFFERSIZE);
+    memset(receiving, '\0', BUFFERSIZE);
     n=recvfrom(fdServerUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
     if (n==-1){
         cout << "Unable to receive from server" << endl;
@@ -191,7 +193,7 @@ void play(){    //no server se for letra repetida
         exit(1); 
     }
     
-    memset(receiving, 0, BUFFERSIZE);
+    memset(receiving, '\0', BUFFERSIZE);
     n=recvfrom(fdServerUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
     if (n==-1){
         cout << "Unable to receive from server" << endl;
@@ -340,23 +342,34 @@ void hint(){
     ifstream image;
     ssize_t n;
     int num;
+    char* ptr;
     char* f;
     char* status;
     char* fname;
     char* sfsize;
-    int fsize;
+    char* fdata;
+    int total;
     memset(msg,0,BUFFERSIZE);
     num = sprintf(msg, "GHL %s\n", plid);
+    
+    
     printf("SENDING: %s", msg);
-    n = connect(fdServerTCP, (struct sockaddr*)resServerTCP->ai_addr,resServerTCP->ai_addrlen);
-    if(n==-1){
-        cout << "Unable to connect from user to server" << endl;
-        exit(1); 
-    }
+    writeTCP(fdServerTCP, msg, num);
 
-    writeTCP(fdServerTCP,msg,num);
     memset(receiving, 0, BUFFERSIZE);
-    readTCP(fdServerTCP, receiving, BUFFERSIZE);
+    total=0;
+    ptr = &receiving[0];
+    while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))!=0){
+            if (n == -1){
+                exit(1);
+            }
+            ptr += n;
+            total += n;
+            if (*(ptr-1) == '\n'){
+                break;
+            }
+        }
+    printf("ENVIADO\n");
     close(fdServerTCP);
 
     f = strtok(receiving, " \n");
@@ -381,6 +394,11 @@ void hint(){
 
     sfsize = strtok(NULL, " \n");
 
+    fdata = strtok(NULL, " \n");
+
+    FILE* fp = fopen(fname,"wb");
+    fwrite (fdata,sizeof(byte), (size_t) atoi(sfsize) , fp);
+    fclose(fp);
 
 
     image.open(fname); //abre a foto da hint
@@ -422,28 +440,35 @@ void exit(){
 
 void readStartingInput(int argc, char *argv[]){
     char dport[BUFFERSIZE];
-    memset(dport, 0, BUFFERSIZE);
-    sprintf(dport, "%d", GN+PORT);
-    gethostname(buffer, BUFFERSIZE);
-    GSip = create_string(buffer);
-    GSport = create_string(dport);
+    int c1=0;
+    int c2=0;
+    
     for (int e = 1; e < argc; e++) {
         if (argv[e][0] == '-'){
-            if (argv[e][1] == 'n'){
-                free(GSip);
+            if (argv[e][1] == 'n' && c1==0){
                 GSip = create_string(argv[e+1]);
                 e++;
+                c1++;
             }
-            else if (argv[e][1] == 'p'){
-                free(GSport);
+            else if (argv[e][1] == 'p' && c2==0){
                 GSport = create_string(argv[e+1]);
                 e++;
+                c2++;
             }
         }
         else{
             printf("\nWrong format in: %s (input argument)\n", argv[e]);
             exit(1);
         }
+    }
+    if (c1 ==0){
+        gethostname(buffer, BUFFERSIZE);
+        GSip = create_string(buffer);
+    }
+    if (c2 ==0){
+        memset(dport, 0, BUFFERSIZE);
+        sprintf(dport, "%d", GN+PORT);
+        GSport = create_string(dport);
     }
 }
 void initUDP(){
@@ -471,7 +496,11 @@ void initUDP(){
 
 void initTCP(){
     fdServerTCP=socket(AF_INET,SOCK_STREAM,0);
-    if (fdServerTCP==-1) exit(1); //error
+    if (fdServerTCP==-1) exit(1); //error     
+}
+
+void connectTCP(){
+    ssize_t n;
 
     memset(&hintsServerTCP,0,sizeof hintsServerTCP);
     hintsServerTCP.ai_family=AF_INET;
@@ -479,6 +508,16 @@ void initTCP(){
 
     errcode= getaddrinfo(GSip, GSport, &hintsServerTCP, &resServerTCP);
     if(errcode!=0)/*error*/
+        exit(1);
+
+    n = connect(fdServerTCP, resServerTCP->ai_addr,resServerTCP->ai_addrlen);
+    if(n==-1){
+        cout << "Unable to connect from user to server" << endl;
+        exit(1); 
+    }
+    t.tv_sec=20;
+    t.tv_usec=0;
+    if (setsockopt(fdServerTCP, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof(t))!=0)
         exit(1);
 }
 
@@ -510,10 +549,9 @@ char* create_string(char* p){
     return string;
 }
 
-void writeTCP(int fd, char* buffer, ssize_t buffer_len){
+void writeTCP(int fd, char buffer[], ssize_t buffer_len){
     ssize_t nleft, nwritten;
-    char* ptr;
-    ptr = &buffer[0];
+    char* ptr = &buffer[0];
     nleft=buffer_len;
     while(nleft>0){
         nwritten=write(fd,ptr,nleft);
