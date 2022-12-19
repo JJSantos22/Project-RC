@@ -91,8 +91,8 @@ int main(int argc, char* argv[]){
         }
         else {
             cout << "Wrong input format" << endl;
-            fflush(stdin);
         }
+        fflush(stdin);
     }
 }
 
@@ -103,14 +103,6 @@ void start(){
     char* splid = strtok(NULL, " \n");
     char f[3];
     char conf[3];
-    /* if (strtok(NULL, " \n")!=NULL || splid==NULL){                     //Invalid input format
-        cout << "Invalid input format" << endl;
-        return;
-    }
-    if (strlen(splid)!=6 || !validPLID(splid)){ 
-        cout << "Invalid ID" << endl;
-        return;
-    } */
 
     memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "SNG %s\n", splid);
@@ -174,14 +166,6 @@ void play(){    //no server se for letra repetida
     char* value;
     char *letter = strtok(NULL, " \n");
     
-    if (strtok(NULL, " \n")!=NULL || letter==NULL){                     //Invalid input format
-        cout << "Invalid input format" << endl;
-        return;
-    }
-    if (strlen(letter)!=1 || !validAlpha(letter, 1)){
-        cout << "Invalid letter" << endl;
-        return;
-    }
 
     memset(msg, 0, BUFFERSIZE);
     attempt++;
@@ -213,7 +197,15 @@ void play(){    //no server se for letra repetida
 
     attempt = atoi(strtok(NULL, " \n"));
 
-    if (strcmp(status, "WIN")==0){
+    if (strcmp(status, "ERR")==0){
+        printf("ERROR WITH COMMAND\n");
+        return;
+    } 
+    else if (strcmp(status, "DUP")==0){         //NÂO INCREMENTAR ATTEMPT
+        printf("JOGADA DUPLICADA\n");
+        return; 
+    }
+    else if (strcmp(status, "WIN")==0){
         for (int e=0; e<word_len; e++){
             if (l[2*e]!='_')
                 continue;
@@ -242,22 +234,7 @@ void play(){    //no server se for letra repetida
         l[2*(atoi(value)-1)] = toupper(letter[0]);
         hits--;
     }
-        
-    /*recebe play ou pl e recebe uma letra(nota: case insensitive) do input
     
-    envia por UDP "PLG plid (letra escolhida) (tentativa)\n"
-
-    recebe por UDP "(RSG) (status) (tentativa) (número de posições em que a letra se encontra) (as posições)\n"
-
-    printf("Yes, "(letra)" is part of the word: (estado da palavra)")
-    or
-    printf("No, "(letra)" is not part of the word")
-    */
-    //if (gameover) win();
-
-
-    //verificar o estado (OK, WIN, DUP, NOK, OVR, INV, ERR)
-    //Se for OK , metemos nas posições recebidas, a letra correta
     printf("Yes,\"%s\" is part of the word: %s\n", letter, l);
 }
 
@@ -267,14 +244,7 @@ void guess(){
     char* f;
     char* status;
     char* word = strtok(NULL, " \n");
-    if (strtok(NULL, " \n")!=NULL || word==NULL){                       //Invalid input format
-        cout << "Invalid input format" << endl;
-        return;
-    }
-    if (!validAlpha(word, strlen(word))){ //talvez  verificar tamanho da palavra adivinhada numa primeira instância                   
-        cout << "Invalid word" << endl;
-        return;
-    }
+    
     memset(msg, 0, BUFFERSIZE);
     attempt++;
     num = sprintf(msg, "PWG %s %s %d\n", plid, word, attempt);
@@ -306,7 +276,11 @@ void guess(){
 
     attempt = atoi(strtok(NULL, " \n"));
 
-    if (strcmp(status, "WIN")==0){
+    if (strcmp(status, "ERR")==0){
+        printf("ERROR WITH COMMAND\n");
+        return;
+    } 
+    else if (strcmp(status, "WIN")==0){
         for (int e=0; e<word_len; e++){
             l[2*e] = toupper(word[e]);
         }
@@ -321,19 +295,6 @@ void guess(){
         cout << "Unexpected response" << endl;
         exit(1); 
     }
-
-    
-
-    
-    /*recebe guess ou gw e recebe uma palavra(nota: case insensitive) do input
-    
-    envia por UDP "PWG plid (palavra) (tentativa)\n"
-
-    recebe por UDP "(RWG) (status) (tentativa)\n"
-
-    printf("output")
-    */
-
 
 }
 
@@ -360,28 +321,30 @@ void hint(){
     total=0;
     ptr = &receiving[0];
     while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))!=0){
-            if (n == -1){
-                exit(1);
-            }
-            ptr += n;
-            total += n;
-            if (*(ptr-1) == '\n'){
-                break;
-            }
+        if (n == -1){
+            exit(1);
         }
+        ptr += n;
+        total += n;
+        if (*(ptr-1) == '\n'){
+            break;
+        }
+    }
     printf("ENVIADO\n");
     close(fdServerTCP);
-
+    printf("RECEIVING: %s\n", receiving);
     f = strtok(receiving, " \n");
-
     if (strcmp(f, "RHL")!=0){
         cout << "Wrong return message from server to user" << endl;
         exit(1); 
     }
 
     status = strtok(NULL, " \n");
-
-    if (strcmp(status, "NOK")==0){
+    if (strcmp(status, "ERR")==0){
+        printf("ERROR WITH COMMAND\n");
+        return;
+    } 
+    else if (strcmp(status, "NOK")==0){
         cout << "Error getting hint" << endl;
         return; 
     }
@@ -391,15 +354,37 @@ void hint(){
     }
     
     fname = strtok(NULL, " \n");
+    printf("name: %s\n", fname);
 
     sfsize = strtok(NULL, " \n");
+    printf("sizec: %s\n", sfsize);
+    printf("sizei: %d\n", atoi(sfsize));
 
     fdata = strtok(NULL, " \n");
+    printf("data: %s\n", fdata);
+    
+    ofstream fp(fname);
+    fp << fdata;
+    /* if (fwrite(fdata,sizeof(Byte),atoi(sfsize), fp)==0)
+        printf("Failed to write\n"); */
 
-    FILE* fp = fopen(fname,"wb");
-    fwrite (fdata,sizeof(byte), (size_t) atoi(sfsize) , fp);
-    fclose(fp);
+    total=atoi(sfsize)-sizeof(*fdata);
+    memset(receiving, 0, BUFFERSIZE);
+    while (total > 0){
+        ptr = &receiving[0];
+        n=read(fdServerTCP, ptr, BUFFERSIZE);
+        if (n == -1){
+            exit(1);
+        }
+        total -= n;
+        ptr += n;
+        if (*(ptr-1) == '\n'){
+            break;
+        }
+        fp << receiving;
+    }
 
+    fp.close();
 
     image.open(fname); //abre a foto da hint
 
@@ -423,6 +408,52 @@ void state(){
 }
 
 void quit(){
+
+    ssize_t n;
+    int num;
+    char f[3];
+    char status[3];
+    char* splid = strtok(NULL, " \n");
+
+    memset(msg, 0, BUFFERSIZE);
+    num = sprintf(msg, "QUT %s\n", splid);
+    printf("SENDING: %s", msg);
+    n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
+    if (n==-1){
+        cout << "Unable to send from user to server" << endl;
+        exit(1); 
+    }
+
+    memset(receiving, '\0', BUFFERSIZE);
+    n=recvfrom(fdServerUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
+    if (n==-1){
+        cout << "Unable to receive from server" << endl;
+        exit(1);
+    }
+
+    printf("RECEIVING: %s", receiving);
+
+    sscanf(receiving, "%s", f);
+    if (strcmp(f, "RQT")!=0){
+        cout << "Wrong return message from server to user" << endl;
+        exit(1); 
+    }
+
+    sscanf(receiving, "RQT %s\n", status);
+
+    if (strcmp(status, "OK") == 0){
+        cout << "You quit" << endl;
+        
+    }
+    else if (strcmp(status, "NOK") == 0){
+        cout << "There wasn't an ongoing Game" << endl;
+        
+    }
+    else{
+        cout << "ERROR" << endl;
+        
+    }
+
     /*recebe quit do input
 
     envia por UDP uma mensagem
@@ -431,12 +462,58 @@ void quit(){
 }
 
 void exit(){
+
+    ssize_t n;
+    int num;
+    char f[3];
+    char status[3];
+    char* splid = strtok(NULL, " \n");
+
+    memset(msg, 0, BUFFERSIZE);
+    num = sprintf(msg, "QUT %s\n", splid);
+    printf("SENDING: %s", msg);
+    n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
+    if (n==-1){
+        cout << "Unable to send from user to server" << endl;
+        exit(1); 
+    }
+
+    memset(receiving, '\0', BUFFERSIZE);
+    n=recvfrom(fdServerUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
+    if (n==-1){
+        cout << "Unable to receive from server" << endl;
+        exit(1);
+    }
+
+    printf("RECEIVING: %s", receiving);
+
+    sscanf(receiving, "%s", f);
+    if (strcmp(f, "RQT")!=0){
+        cout << "Wrong return message from server to user" << endl;
+        exit(1); 
+    }
+
+    sscanf(receiving, "RQT %s\n", status);
+
+    if (strcmp(status, "OK") == 0){
+        cout << "Bye Bye" << endl;
+        exit(1); 
+    }
+    else if (strcmp(status, "NOK") == 0){
+        cout << "There wasn't an ongoing Game but .. BYE" << endl;
+        exit(1); 
+    }
+    else{
+        cout << "ERROR" << endl;
+        exit(1); 
+    }
     /*recebe exit do input
     
     envia por UDP uma mensagem
     
     fecha as conexões TCP*/
 }
+
 
 void readStartingInput(int argc, char *argv[]){
     char dport[BUFFERSIZE];
@@ -521,22 +598,6 @@ void connectTCP(){
         exit(1);
 }
 
-bool validPLID(char *string)
-{
-    size_t a = strspn(string, "0123456789");
-    if (a==strlen(string))
-        return true;
-    return false;
-}
-
-bool validAlpha(char *string, size_t n)
-{
-    size_t a = strspn(string, "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz");
-    if (a!=n){
-        return false;
-    }
-    return true;
-}
 
 char* create_string(char* p){
     char* string = (char*)malloc((strlen(p)+1)*sizeof(char));
