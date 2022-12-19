@@ -358,36 +358,42 @@ void hint(){
     printf("name: %s\n", fname);
 
     sfsize = strtok(NULL, " \n");
+    int fsize=atoi(sfsize);
     printf("sizec: %s\n", sfsize);
-    printf("sizei: %d\n", atoi(sfsize));
+    printf("sizei: %d\n", fsize);
 
     fdata = strtok(NULL, " \n");
     printf("data: %s\n", fdata);
-
-    ofstream fp(fname);
-    fp << fdata;
-    /* if (fwrite(fdata,sizeof(Byte),atoi(sfsize), fp)==0)
-        printf("Failed to write\n"); */
-
-    total=atoi(sfsize)-sizeof(*fdata);
-    memset(receiving, 0, BUFFERSIZE);
-    while (total > 0){
+    FILE *fptr = fopen(fname, "wb");
+    fwrite(fdata,1,sizeof(fdata), fptr);
+    fptr += sizeof(fdata);
+    fsize-=sizeof(fdata);
+    while (fsize>0) {
+        memset(receiving, 0, BUFFERSIZE);
         ptr = &receiving[0];
-        n=read(fdServerTCP, ptr, BUFFERSIZE);
-        if (n == -1){
-            exit(1);
+        total = 0;
+        while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))!=0){
+            if (n == -1){
+                exit(1);
+            }
+            ptr += n;
+            total += n;
+            if (*(ptr-1) == '\n'){
+                break;
+            }
         }
-        total -= n;
-        ptr += n;
+        fsize -= total;
+        printf("size: %d buffer: %s\n", total, receiving);
+
         if (*(ptr-1) == '\n'){
             break;
         }
-        fp << receiving;
+        fwrite(receiving,1, total, fptr);
+        fptr += total;
     }
 
-    fp.close();
+    fclose(fptr);
 
-    image.open(fname); //abre a foto da hint
 
     /*recebe hint ou h do input
     

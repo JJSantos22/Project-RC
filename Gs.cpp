@@ -77,6 +77,7 @@ void play();
 void guess();
 void state();
 void hint();
+void quit_exit();
 void scoreboard();
 bool validPLID(char *string);
 bool validAlpha(char *string, size_t n);
@@ -85,8 +86,10 @@ void choose_word();
 int letter_in_word(char* word, char* letter, char* pos, int word_len);
 void writeTCP(int fd, char buffer[], ssize_t buffer_len);
 void readTCP(int fd, char *buffer, ssize_t len);
-bool duplicateplay(char* plid, char f[]);
+bool duplicateplay(char* plid, char *f);
 bool compare_word(char* guess, char* word);
+char* get_hint(char* plid);
+bool has_active_game(char* plid);
 
 int main(int argc, char *argv[]){
     readInput(argc, argv);
@@ -123,6 +126,8 @@ int main(int argc, char *argv[]){
                 play();
             else if (strcmp(op, "PWG")==0)
                 guess();
+            else if (strcmp(op, "QUT")==0)
+                quit_exit();
         }
         else if (FD_ISSET(fdClientTCP, &readfds)){
             addrlen=sizeof(addr);
@@ -303,6 +308,7 @@ void play(){
         }
         char buf[BUFFERSIZE];
         sprintf(buf, "GAME_%s.txt", id);
+        sprintf(move, "T %c", letter[0]);
         append_file(buf, move);
     }
     
@@ -496,8 +502,8 @@ void hint(){
     char* id;
     memset(buffer, 0, BUFFERSIZE);
     id = strtok(NULL, " \n");
-    
-    
+    char* hintim = get_hint(id);
+    printf("hint: %s\n", hintim);
 
     /*
     int n = 0;
@@ -536,8 +542,52 @@ void hint(){
         memset(Sbuf, 0, sizeof(Sbuf));
     }
     */
+    free(hintim);
 }
 
+
+void quit_exit(){
+
+    char status[4];
+    ssize_t n;
+    char* id;
+    int num;
+
+    printf("entrou no quit\n");
+
+    id = strtok(NULL, " \n");
+    printf("%s\n", id);
+
+    if (strcmp(id, plid)!=0){ //alterar para varios jogadores
+        exit(1);
+    }
+
+    if (strtok(NULL, " \n")!=NULL){
+        strcpy(buffer, "RQT ERR\n");
+        n = sendto(fdClientUDP, buffer, 8, 0, (struct sockaddr *) &addr, addrlen);
+        if (n==-1){
+            cout << "Unable to send from server to user" << endl;
+            exit(1); 
+        }
+        return;
+    }
+
+    
+    if (has_active_game(plid))
+        strcpy(status, "OK");
+    else{
+        strcpy(status, "NOK");
+    }  
+    memset(buffer, 0, BUFFERSIZE);
+    num = sprintf(buffer, "RQT %s\n", status);
+    printf("SENDING: %s", buffer);
+    
+    n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
+    if (n==-1){
+        cout << "Unable to send from server to user" << endl;
+        exit(1); 
+    } 
+}
 
 
 
@@ -825,5 +875,25 @@ bool compare_word(char* guess, char* word){
             return false;
         }
     return true;
+}
 
+char* get_hint(char* plid){
+    char filename[BUFFERSIZE];
+    char* hint = (char*)calloc(BUFFERSIZE, sizeof(char));
+    sprintf(filename, "GAME_%s.txt", plid);
+    ifstream file(filename);
+    string tmp;
+    getline(file, tmp);
+    sscanf(tmp.c_str(), "%*s %s", hint);
+    file.close();
+    return hint;
+}
+
+bool has_active_game(char* plid){
+    char buf[BUFFERSIZE];
+    sprintf(buf, "GAME_%s.txt", plid);
+    ifstream file(buf);
+    if (!file)           
+        return false;
+    return true;
 }
