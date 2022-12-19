@@ -195,7 +195,6 @@ void play(){    //no server se for letra repetida
 
     status = strtok(NULL, " \n");
 
-    attempt = atoi(strtok(NULL, " \n"));
 
     if (strcmp(status, "ERR")==0){
         printf("ERROR WITH COMMAND\n");
@@ -227,6 +226,8 @@ void play(){    //no server se for letra repetida
         exit(1); 
     }
 
+    attempt = atoi(strtok(NULL, " \n"));
+    
     hits = atoi(strtok(NULL, " \n"));
 
     while (hits > 0){
@@ -274,7 +275,6 @@ void guess(){
 
     status = strtok(NULL, " \n");
 
-    attempt = atoi(strtok(NULL, " \n"));
 
     if (strcmp(status, "ERR")==0){
         printf("ERROR WITH COMMAND\n");
@@ -296,6 +296,7 @@ void guess(){
         exit(1); 
     }
 
+    attempt = atoi(strtok(NULL, " \n"));
 }
 
 void hint(){
@@ -362,7 +363,7 @@ void hint(){
 
     fdata = strtok(NULL, " \n");
     printf("data: %s\n", fdata);
-    
+
     ofstream fp(fname);
     fp << fdata;
     /* if (fwrite(fdata,sizeof(Byte),atoi(sfsize), fp)==0)
@@ -413,10 +414,9 @@ void quit(){
     int num;
     char f[3];
     char status[3];
-    char* splid = strtok(NULL, " \n");
 
     memset(msg, 0, BUFFERSIZE);
-    num = sprintf(msg, "QUT %s\n", splid);
+    num = sprintf(msg, "QUT %s\n", plid);
     printf("SENDING: %s", msg);
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
@@ -467,10 +467,9 @@ void exit(){
     int num;
     char f[3];
     char status[3];
-    char* splid = strtok(NULL, " \n");
 
     memset(msg, 0, BUFFERSIZE);
-    num = sprintf(msg, "QUT %s\n", splid);
+    num = sprintf(msg, "QUT %s\n", plid);
     printf("SENDING: %s", msg);
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){

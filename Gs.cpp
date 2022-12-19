@@ -394,6 +394,7 @@ void guess(){
     char* guess;
     char* id;
     char status[4];
+    char* val;
     
 
     id = strtok(NULL, " \n");
@@ -402,10 +403,8 @@ void guess(){
     }
 
     guess = strtok(NULL, " \n");
+    val=strtok(NULL, " \n");           //rever
 
-    if(attempt+1 == (num=atoi(strtok(NULL, " \n")))){           //rever
-        attempt++;
-    }
     if (strtok(NULL, " \n")!=NULL || guess==NULL || !validAlpha(guess, strlen(guess))){    
         strcpy(buffer, "RWG ERR\n");
         n = sendto(fdClientUDP, buffer, 8, 0, (struct sockaddr *) &addr, addrlen);
@@ -416,6 +415,9 @@ void guess(){
         return;
     }
 
+    if(attempt+1 == (atoi(val))){ //
+        attempt++;
+    }
 
     if (compare_word(guess, word)){
         strcpy(status, "WIN");
