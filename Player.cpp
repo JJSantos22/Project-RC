@@ -19,7 +19,7 @@ using namespace std;
 #define GN 60
 #define IP "tejo.tecnico.ulisboa.pt"
 #define PORT 58000
-#define BUFFERSIZE 128
+#define BUFFERSIZE 256
 
 char* plid;                     //Verificar necessidade
 int word_len;
@@ -45,10 +45,10 @@ void initUDP();
 void initTCP();
 void connectTCP();
 void writeTCP(int fd, char buffer[], ssize_t buffer_len);
-void readTCP(int fd, char *buffer, ssize_t len);
 void start();
 void play();
 void guess();
+void scoreboard();
 void hint();
 void state();
 void quit();
@@ -89,6 +89,9 @@ int main(int argc, char* argv[]){
         else if (strcmp(f,"exit") == 0){
             exit();
         }
+        else if (strcmp(f,"scoreboard") == 0){
+            scoreboard();
+        }
         else {
             cout << "Wrong input format" << endl;
         }
@@ -104,6 +107,10 @@ void start(){
     char f[3];
     char conf[3];
 
+    if (plid!=NULL)
+        free(plid);
+    plid = create_string(splid);
+
     memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "SNG %s\n", splid);
     printf("SENDING: %s", msg);
@@ -112,6 +119,7 @@ void start(){
         cout << "Unable to send from user to server" << endl;
         exit(1); 
     }
+
 
     addrlen=sizeof(addr);
     memset(receiving, '\0', BUFFERSIZE);
@@ -132,7 +140,8 @@ void start(){
     sscanf(receiving, "RSG %s %d %d\n", conf, &word_len, &max_errors);
     if (strcmp(conf, "NOK")==0){
         cout << "Game already ongoing" << endl;
-        exit(1); 
+        return;
+        
     }
     else if (strcmp(conf, "OK")!=0){
         cout << "Unexpected response" << endl;
@@ -153,7 +162,6 @@ void start(){
     }
     l[2*i]='\0';
     printf("New game started (max %d errors): %s\n", max_errors, l);
-    plid = create_string(splid);
 
 }
 
@@ -285,7 +293,6 @@ void guess(){
             l[2*e] = toupper(word[e]);
         }
         printf("WELL DONE! You guessed: %s\n", l);
-        exit(1); 
     }
     else if (strcmp(status, "NOK")==0){
         cout << "Wrong guess" << endl;
@@ -408,7 +415,7 @@ void hint(){
 void state(){
     /*recebe state ou st do input
     
-    estabelece uma conexão TCP
+    estabelece uma conexao TCP
 
     envia 
     */
@@ -464,7 +471,59 @@ void quit(){
 
     envia por UDP uma mensagem
     
-    fecha as conexões TCP*/
+    fecha as conexoes TCP*/
+}
+
+void scoreboard(){
+
+    int total;
+    ssize_t n;
+    int num;
+    char f[3];
+    char status[3]; 
+    char* ptr;
+
+    memset(msg,0,BUFFERSIZE);
+    num = sprintf(msg, "GSB\n");
+    
+    printf("SENDING: %s", msg);
+    writeTCP(fdServerTCP, msg, num);
+    printf("ENVIADO\n");
+
+    memset(receiving, 0, BUFFERSIZE);
+    total=0;
+    ptr = &receiving[0];
+    while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))>0){
+        if (n == -1){
+            exit(1);
+        }
+        ptr += n;
+        total += n;
+        printf("%s", receiving);
+        if (*(ptr-1) == '\n'){
+            break;
+        }
+        memset(receiving, 0, BUFFERSIZE);
+        total=0;
+        ptr = &receiving[0];
+    }
+    /* strtok(receiving, " \n");
+    while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))>0){
+        printf("Receiving\n");
+        if (n == -1){
+            exit(1);
+        }
+        ptr += n;
+        total += n;
+        printf("RECEIVING: %s\n", receiving);
+        if (*(ptr-1) == '\n'){
+            break;
+        }
+    } */
+
+    close(fdServerTCP);
+ 
+
 }
 
 void exit(){
@@ -516,7 +575,7 @@ void exit(){
     
     envia por UDP uma mensagem
     
-    fecha as conexões TCP*/
+    fecha as conexoes TCP*/
 }
 
 
@@ -626,20 +685,4 @@ void writeTCP(int fd, char buffer[], ssize_t buffer_len){
         nleft-=nwritten;
         ptr+=nwritten;
     }
-}
-
-void readTCP(int fd, char *buffer, ssize_t len){
-    char* ptr;
-    ssize_t nleft, nread;
-    nleft=len; 
-    ptr=buffer;
-    while(nleft>0){
-        nread=read(fd,ptr,nleft);
-        if(nread==-1)/*error*/
-            exit(1);
-        else if(nread==0)
-            break;//closed by peer
-        nleft-=nread;
-        ptr+=nread;}
-        nread=len-nleft;
 }
