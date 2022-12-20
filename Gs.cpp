@@ -33,6 +33,7 @@ int verbose;
 char *GSport;   //free no fim
 char buffer[BUFFERSIZE];
 char receiving[BUFFERSIZE];
+char sending[BUFFERSIZE];
 char *wfile;    //free no fim
 char *aux_word; 
 char *aux_hint; 
@@ -140,10 +141,10 @@ void start(){
     
     char* splid = create_string(strtok(NULL, " \n"));
     
-    memset(buffer, 0, BUFFERSIZE);
+    memset(sending, 0, BUFFERSIZE);
     if (strtok(NULL, " \n")!=NULL || splid==NULL || strlen(splid)!=6 || !validPLID(splid)){                     //Invalid input format
-        strcpy(buffer, "RSG ERR\n");
-        n = sendto(fdClientUDP, buffer, 8, 0, (struct sockaddr *) &addr, addrlen);
+        strcpy(sending, "RSG ERR\n");
+        n = sendto(fdClientUDP, sending, 8, 0, (struct sockaddr *) &addr, addrlen);
         if (n==-1){
             cout << "Unable to send from server to user" << endl;
             exit(1); 
@@ -163,17 +164,17 @@ void start(){
             exit(1);
         }
         strcpy(status,"OK");
-        num = sprintf(buffer, "RSG %s %ld %d\n", status, strlen(aux_word), max_errors);
+        num = sprintf(sending, "RSG %s %ld %d\n", status, strlen(aux_word), max_errors);
         create_ongoing_gamefile(splid, aux_word, aux_hint, thits, max_errors);
     }
     else{
         strcpy(status,"NOK");
-        num = sprintf(buffer, "RSG %s\n", status);
+        num = sprintf(sending, "RSG %s\n", status);
     }
 
-    printf("SENDING: %s", buffer);
+    printf("SENDING: %s", sending);
     addrlen=sizeof(addr);
-    n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
+    n = sendto(fdClientUDP, sending, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
         cout << "Unable to send from server to user" << endl;
         exit(1); 
@@ -205,7 +206,6 @@ void play(){
     }
     
     
-    memset(buffer, 0, BUFFERSIZE);
 
     id = strtok(NULL, " \n");
 
@@ -220,9 +220,10 @@ void play(){
 
     num=atoi(strtok(NULL, " \n"));
 
+    memset(sending, 0, BUFFERSIZE);
     if (strtok(NULL, " \n")!=NULL || letter==NULL || strlen(letter)!=1 || !validAlpha(letter, 1)){
-        strcpy(buffer, "RLG ERR\n");
-        n = sendto(fdClientUDP, buffer, 8, 0, (struct sockaddr *) &addr, addrlen);
+        strcpy(sending, "RLG ERR\n");
+        n = sendto(fdClientUDP, sending, 8, 0, (struct sockaddr *) &addr, addrlen);
         if (n==-1){
             cout << "Unable to send from server to user" << endl;
             exit(1); 
@@ -233,7 +234,7 @@ void play(){
     sprintf(move, "T %c", toupper(letter[0]));
     if (duplicateplay(id, move)){
         strcpy(status, "DUP");
-        num = sprintf(buffer, "RLG %s %d\n", status, attempt);
+        num = sprintf(sending, "RLG %s %d\n", status, attempt);
     }
     else{
         int hits = letter_in_word(word, letter, pos, strlen(word)); 
@@ -241,34 +242,35 @@ void play(){
         attempt++;
         if (thits==0){
             strcpy(status, "WIN");
-            num = sprintf(buffer, "RLG %s %d\n", status, attempt);
+            num = sprintf(sending, "RLG %s %d\n", status, attempt);
         }
         else if (hits==0){
             errors++;
             if (errors>=max_errors){
                 strcpy(status,"OVR");
-                num = sprintf(buffer, "RLG %s %d %d\n", status, attempt, hits);
+                num = sprintf(sending, "RLG %s %d %d\n", status, attempt, hits);
             }
                 
             else {
                 strcpy(status,"NOK");
-                num = sprintf(buffer, "RLG %s %d %d\n", status, attempt, hits);
+                num = sprintf(sending, "RLG %s %d %d\n", status, attempt, hits);
             }
         }
         else{
             strcpy(status,"OK");
-            num = sprintf(buffer, "RLG %s %d %d%s\n", status, attempt, hits, pos);
+            num = sprintf(sending, "RLG %s %d %d%s\n", status, attempt, hits, pos);
         }
         sprintf(move, "T %c", letter[0]);
         update_file(id, move, word, hint, attempt, thits, errors, max_errors);
+
     }
     
     
         
 
-    printf("SENDING: %s", buffer);
+    printf("SENDING: %s", sending);
     
-    n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
+    n = sendto(fdClientUDP, sending, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
         cout << "Unable to send from server to user" << endl;
         exit(1); 
@@ -305,9 +307,10 @@ void guess(){           //REVER QUANDO INCREMENTAR ATTEMPT
     guess = strtok(NULL, " \n");
     val=strtok(NULL, " \n");           //rever
 
+    memset(sending, 0, BUFFERSIZE);
     if (strtok(NULL, " \n")!=NULL || guess==NULL || !validAlpha(guess, strlen(guess))){    
-        strcpy(buffer, "RWG ERR\n");
-        n = sendto(fdClientUDP, buffer, 8, 0, (struct sockaddr *) &addr, addrlen);
+        strcpy(sending, "RWG ERR\n");
+        n = sendto(fdClientUDP, sending, 8, 0, (struct sockaddr *) &addr, addrlen);
         if (n==-1){
             cout << "Unable to send from server to user" << endl;
             exit(1); 
@@ -330,11 +333,10 @@ void guess(){           //REVER QUANDO INCREMENTAR ATTEMPT
         }
     }
     
-    memset(buffer, 0, BUFFERSIZE);
-    num = sprintf(buffer, "RWG %s %d\n", status, attempt);
-    printf("SENDING: %s", buffer);
+    num = sprintf(sending, "RWG %s %d\n", status, attempt);
+    printf("SENDING: %s", sending);
     
-    n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
+    n = sendto(fdClientUDP, sending, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
         cout << "Unable to send from server to user" << endl;
         exit(1); 
@@ -407,10 +409,10 @@ void quit_exit(){
 
     id = strtok(NULL, " \n");
     printf("%s\n", id);
-
+    memset(sending, 0, BUFFERSIZE);
     if (strtok(NULL, " \n")!=NULL){
-        strcpy(buffer, "RQT ERR\n");
-        n = sendto(fdClientUDP, buffer, 8, 0, (struct sockaddr *) &addr, addrlen);
+        strcpy(sending, "RQT ERR\n");
+        n = sendto(fdClientUDP, sending, 8, 0, (struct sockaddr *) &addr, addrlen);
         if (n==-1){
             cout << "Unable to send from server to user" << endl;
             exit(1); 
@@ -424,11 +426,10 @@ void quit_exit(){
     else{
         strcpy(status, "NOK");
     }  
-    memset(buffer, 0, BUFFERSIZE);
-    num = sprintf(buffer, "RQT %s\n", status);
+    num = sprintf(sending, "RQT %s\n", status);
     printf("SENDING: %s", buffer);
     
-    n = sendto(fdClientUDP, buffer, num, 0, (struct sockaddr *) &addr, addrlen);
+    n = sendto(fdClientUDP, sending, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
         cout << "Unable to send from server to user" << endl;
         exit(1); 
@@ -551,10 +552,11 @@ void create_ongoing_gamefile(char *plid, char *word, char *hint, int thits, int 
     ofstream outfile (filename);
     char line2[]="0 ";
     char line3[7];
+    char line4[4*30];
+    memset(line4, ' ', 4*30);
     sprintf(line3, "%d  0 %d", thits, max_errors);
-    printf("linha 3: %s\n", line3);
 
-    outfile << word << " " << hint << " " << line2 << " " << line3 << endl;
+    outfile << word << " " << hint << " " << line2 << " " << line3 << endl << line4 << endl;
 
     outfile.close();
 }
@@ -563,15 +565,16 @@ void update_file(char *plid, char *add, char *word, char* hint, int attempt, int
     fpos_t position;
     char filename[BUFFERSIZE];
     sprintf(filename, "GAME_%s.txt", plid);
-    FILE* file = fopen(filename, "wb");
+    FILE* file = fopen(filename, "w");
     fgetpos (file, &position);
+    sprintf(buffer, "%s %s %d %d %d %d\n", word, hint, attempt, thits, errors, max_errors);
+    printf("BUFFER UPDATE: %s\n", buffer);
     fsetpos (file, &position);
+    fputs (buffer, file);
     char buffer[37];
     memset(buffer, 0, BUFFERSIZE);
 
-    sprintf(buffer, "%s %s %d %d %d %d\n", word, hint, attempt, thits, errors, max_errors);
-    printf("BUFFER UPDATE: %s\n", buffer);
-    fputs (buffer, file);
+    
     fclose(file);
     ofstream outfile;
 
