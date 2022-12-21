@@ -77,22 +77,19 @@ int main(int argc, char* argv[]){
             guess();
         }
         else if (strcmp(f,"hint") == 0 || strcmp(f,"h") == 0){
-            connectTCP();
             hint();
         }
         else if (strcmp(f,"state") == 0 || strcmp(f,"st") == 0){
-            connectTCP();
             state();
+        }
+        else if (strcmp(f,"scoreboard") == 0){
+            scoreboard();
         }
         else if (strcmp(f,"quit") == 0){
             quit();
         }
         else if (strcmp(f,"exit") == 0){
             exit();
-        }
-        else if (strcmp(f,"scoreboard") == 0){
-            connectTCP();
-            scoreboard();
         }
         else {
             cout << "Wrong input format" << endl;
@@ -178,8 +175,7 @@ void play(){    //no server se for letra repetida
     
 
     memset(msg, 0, BUFFERSIZE);
-    attempt++;
-    num = sprintf(msg, "PLG %s %s %d\n", plid, letter, attempt);
+    num = sprintf(msg, "PLG %s %s %d\n", plid, letter, attempt+1);
     printf("SENDING: %s", msg);
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
@@ -210,7 +206,10 @@ void play(){    //no server se for letra repetida
         printf("ERROR WITH COMMAND\n");
         return;
     } 
-    else if (strcmp(status, "DUP")==0){         //NÂO INCREMENTAR ATTEMPT
+    
+    attempt = atoi(strtok(NULL, " \n"));
+    
+    if (strcmp(status, "DUP")==0){
         printf("JOGADA DUPLICADA\n");
         return; 
     }
@@ -231,16 +230,15 @@ void play(){    //no server se for letra repetida
         printf("No,\"%s\" is not part of the word: %s\nNO MORE TRIES... GAME OVER...\n", letter, l);
         return;
     }
+    else if (strcmp(status, "INV") == 0){
+        cout << "Invalid attempt,..., we'll be fixing the issue" << endl;
+        return;
+    }
     else if (strcmp(status, "OK")!=0){
         cout << "Unexpected response" << endl;
         exit(1); 
     }
-    else if (strcmp(status, "INV") == 0){
-        cout << "Unexpected response" << endl;
-        return;
-    }
 
-    attempt = atoi(strtok(NULL, " \n"));
     
     hits = atoi(strtok(NULL, " \n"));
 
@@ -261,8 +259,7 @@ void guess(){
     char* word = strtok(NULL, " \n");
     
     memset(msg, 0, BUFFERSIZE);
-    attempt++;
-    num = sprintf(msg, "PWG %s %s %d\n", plid, word, attempt);
+    num = sprintf(msg, "PWG %s %s %d\n", plid, word, attempt+1);
     printf("SENDING: %s", msg);
 
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
@@ -289,27 +286,40 @@ void guess(){
 
     status = strtok(NULL, " \n");
 
-
     if (strcmp(status, "ERR")==0){
         printf("ERROR WITH COMMAND\n");
         return;
     } 
-    else if (strcmp(status, "WIN")==0){
+    
+    attempt = atoi(strtok(NULL, " \n"));
+    
+    if (strcmp(status, "WIN")==0){
         for (int e=0; e<word_len; e++){
             l[2*e] = toupper(word[e]);
         }
         printf("WELL DONE! You guessed: %s\n", l);
     }
+    else if (strcmp(status, "DUP")==0){
+        printf("JOGADA DUPLICADA\n");
+        return; 
+    }
+    else if (strcmp(status, "OVR")==0){
+        printf("Wrong guess\nNO MORE TRIES... GAME OVER...\n");
+        return;
+    }
     else if (strcmp(status, "NOK")==0){
         cout << "Wrong guess" << endl;
         return; 
+    }
+    else if (strcmp(status, "INV") == 0){
+        cout << "Invalid attempt,..., we'll be fixing the issue" << endl;
+        return;
     }
     else if (strcmp(status, "OK")!=0){
         cout << "Unexpected response" << endl;
         exit(1); 
     }
 
-    attempt = atoi(strtok(NULL, " \n"));
 }
 
 void hint(){        //The Player displays the name and size of the stored file
@@ -324,6 +334,8 @@ void hint(){        //The Player displays the name and size of the stored file
     char status[6];
     char fname[BUFFERSIZE];
     
+    connectTCP();
+
     memset(msg,0,BUFFERSIZE);
     num = sprintf(msg, "GHL %s\n", plid);
  
@@ -368,7 +380,7 @@ void hint(){        //The Player displays the name and size of the stored file
     FILE *file = fopen(fname, "w");
     fwrite(&receiving[offset], 1, BUFFERSIZE-offset, file);
 
-    size-=(BUFFERSIZE-offset-1);
+    size-=(BUFFERSIZE-offset);//descobrir se é com -1 ou não
     while (size>0){
         memset(receiving, 0, BUFFERSIZE);
         total=0;
@@ -378,7 +390,7 @@ void hint(){        //The Player displays the name and size of the stored file
             total += n;
         }
         size-=total;
-        if (total==BUFFERSIZE)
+        if (total==BUFFERSIZE)          //talvez modificar
             fwrite(&receiving[0], 1, total, file);
         else 
             fwrite(&receiving[0], 1, total-1, file);
@@ -411,6 +423,8 @@ void state(){
     char status[4];
     char fname[BUFFERSIZE];
     
+    connectTCP();
+
     memset(msg,0,BUFFERSIZE);
     num = sprintf(msg, "STA %s\n", plid);
  
@@ -424,7 +438,6 @@ void state(){
         ptr += n;
         total += n;
     }
-    printf("n: %ld\n", n);
     printf("receiving: %s\n", receiving);
     for (offset=0; offset<BUFFERSIZE && blank<4; offset++){
         if (receiving[offset]==' '){
@@ -433,16 +446,13 @@ void state(){
     }
     bzero(f, 4);
     sscanf(receiving, "%s", f);
-    printf("F:%s\n",f);
     if (strcmp(f, "RST") != 0){
-        cout << " Aquic Wrong return message from server to user" << endl;
+        cout << " Wrong return message from server to user" << endl;
         exit(1);
     }
-    //printf("f: %s\n", f);
 
     bzero(status, 4);
     sscanf(receiving, "RST %s", status);
-    //printf("status: %s\n", status);
 
     if (strcmp(status, "NOK") == 0){
         cout << "No games(active or finished) for this player." << endl; 
@@ -555,6 +565,8 @@ void scoreboard(){
     int offset;
     int size;
     char fname[BUFFERSIZE];
+
+    connectTCP();
 
     memset(msg,0,BUFFERSIZE);
     num = sprintf(msg, "GSB\n");
@@ -734,7 +746,8 @@ void initUDP(){
 
 void initTCP(){
     fdServerTCP=socket(AF_INET,SOCK_STREAM,0);
-    if (fdServerTCP==-1) exit(1); //error     
+    if (fdServerTCP==-1) 
+        exit(1); //error     
 }
 
 void connectTCP(){

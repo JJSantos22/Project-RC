@@ -1,6 +1,1 @@
-island maldives.jpg 5 4 2 7
-T a
-T y
-T t
-T i
-G island
+zoroastrianism faravahar.jpg 0 14 0 9

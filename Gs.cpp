@@ -74,6 +74,8 @@ bool compare_word(char* guess, char* word);
 char* get_hint(char* plid);
 bool has_active_game(char* plid);
 void get_variables_from_file(char* plid, char *word, char* hint, int *attempt, int *thits, int *errors, int *max_errors);
+bool islastplay(char* plid,char* move);
+int findSize(char file_name[]);
 
 int main(int argc, char *argv[]){
     readInput(argc, argv);
@@ -138,11 +140,13 @@ void start(){
     char status[4];
     int thits;
     int max_errors;
+    int attempt;
+    int errors;
     
-    char* splid = create_string(strtok(NULL, " \n"));
+    char* plid = create_string(strtok(NULL, " \n"));
     
     memset(sending, 0, BUFFERSIZE);
-    if (strtok(NULL, " \n")!=NULL || splid==NULL || strlen(splid)!=6 || !validPLID(splid)){                     //Invalid input format
+    if (strtok(NULL, " \n")!=NULL || plid==NULL || strlen(plid)!=6 || !validPLID(plid)){                     //Invalid input format
         strcpy(sending, "RSG ERR\n");
         n = sendto(fdClientUDP, sending, 8, 0, (struct sockaddr *) &addr, addrlen);
         if (n==-1){
@@ -153,7 +157,7 @@ void start(){
     }
 
 
-    if (!has_active_game(splid)/*  || attempt=0 */){      //VER PARA GAME ATTEMPT = 0    E    VER COMO VOLTAR A ACESSAR UM JOGO EM ANDAMENTO
+    if (!has_active_game(plid)){
         choose_word();
         printf("main: %s\n", aux_hint);
         printf("W: %s\n",aux_word);
@@ -165,11 +169,30 @@ void start(){
         }
         strcpy(status,"OK");
         num = sprintf(sending, "RSG %s %ld %d\n", status, strlen(aux_word), max_errors);
-        create_ongoing_gamefile(splid, aux_word, aux_hint, thits, max_errors);
+        create_ongoing_gamefile(plid, aux_word, aux_hint, thits, max_errors);
+        free(aux_word);
+        free(aux_hint);
     }
     else{
-        strcpy(status,"NOK");
-        num = sprintf(sending, "RSG %s\n", status);
+        aux_word=(char*) calloc(BUFFERSIZE, sizeof(char));          
+        if (aux_word==NULL){
+            exit(1);
+        }
+        aux_hint=(char*) calloc(BUFFERSIZE, sizeof(char));          
+        if (aux_hint==NULL){
+            exit(1);
+        }
+        get_variables_from_file(plid, aux_word, aux_hint, &attempt, &thits, &errors, &max_errors);
+        if (attempt>0){
+            strcpy(status,"NOK");
+            num = sprintf(sending, "RSG %s\n", status);
+        }
+        else{
+            strcpy(status,"OK");
+            num = sprintf(sending, "RSG %s %ld %d\n", status, strlen(aux_word), max_errors);
+        }
+        free(aux_word);
+        free(aux_hint);
     }
 
     printf("SENDING: %s", sending);
@@ -180,9 +203,7 @@ void start(){
         exit(1); 
     }
 
-    free(aux_word);
-    free(aux_hint);
-    free(splid);
+    free(plid);
 }
 
 void play(){
@@ -195,12 +216,13 @@ void play(){
     int attempt;
     int thits;
     int errors;
+    int val;
     int max_errors;
-    char *word=(char*) calloc(BUFFERSIZE, sizeof(char));            //FREEEEEEEEEE
+    char *word=(char*) calloc(BUFFERSIZE, sizeof(char));          
     if (word==NULL){
         exit(1);
     }
-    char *hint=(char*) calloc(BUFFERSIZE, sizeof(char));            //FREEEEEEEEEE
+    char *hint=(char*) calloc(BUFFERSIZE, sizeof(char));         
     if (hint==NULL){
         exit(1);
     }
@@ -216,12 +238,14 @@ void play(){
         exit(1);
     }
 
+    
+
     letter = strtok(NULL, " \n");
 
-    num = atoi(strtok(NULL, " \n"));//CUIDADO
+    val = atoi(strtok(NULL, " \n"));
 
     memset(sending, 0, BUFFERSIZE);
-    if (strtok(NULL, " \n")!=NULL || letter==NULL || strlen(letter)!=1 || !validAlpha(letter, 1)){
+    if (strtok(NULL, " \n")!=NULL || letter==NULL || strlen(letter)!=1 || !validAlpha(letter, 1) || !has_active_game(id)){
         strcpy(sending, "RLG ERR\n");
         n = sendto(fdClientUDP, sending, 8, 0, (struct sockaddr *) &addr, addrlen);
         if (n==-1){
@@ -230,9 +254,23 @@ void play(){
         }
         return;
     }
-
     sprintf(move, "T %c", toupper(letter[0]));
-    if (duplicateplay(id, move)){
+    if (val==attempt){
+        if(islastplay(id, move)){
+            strcpy(status,"OK");
+            int hits = letter_in_word(word, letter, pos, strlen(word)); 
+            num = sprintf(sending, "RLG %s %d %d%s\n", status, attempt, hits, pos);
+        }
+        else{
+            strcpy(status,"INV");
+            num = sprintf(sending, "RLG %s %d\n", status, attempt);
+        }
+    }
+    else if (val!=attempt+1){
+        strcpy(status,"INV");
+        num = sprintf(sending, "RLG %s %d\n", status, attempt);
+    }
+    else if (duplicateplay(id, move)){
         strcpy(status, "DUP");
         num = sprintf(sending, "RLG %s %d\n", status, attempt);
     }
@@ -265,9 +303,6 @@ void play(){
 
     }
     
-    
-        
-
     printf("SENDING: %s", sending);
     
     n = sendto(fdClientUDP, sending, num, 0, (struct sockaddr *) &addr, addrlen);
@@ -280,35 +315,33 @@ void play(){
     free(hint);
 }
 
-void guess(){           //REVER QUANDO INCREMENTAR ATTEMPT
+void guess(){           
     ssize_t n;
     int num;
     char* guess;
     char* id;
     char status[4];
-    char* val;
+    int val;
     int attempt;
     int thits;
     int errors;
     int max_errors;
-    char *word=(char*) calloc(BUFFERSIZE, sizeof(char));            //FREEEEEEEEEE
+    char move[BUFFERSIZE];
+    char *word=(char*) calloc(BUFFERSIZE, sizeof(char));           
     if (word==NULL){
         exit(1);
     }
-    char *hint=(char*) calloc(BUFFERSIZE, sizeof(char));            //FREEEEEEEEEE
+    char *hint=(char*) calloc(BUFFERSIZE, sizeof(char));            
     if (hint==NULL){
         exit(1);
     }
 
     id = strtok(NULL, " \n");
-
-    get_variables_from_file(id, word, hint, &attempt, &thits, &errors, &max_errors);
-
     guess = strtok(NULL, " \n");
-    val=strtok(NULL, " \n");           //rever
+    val=atoi(strtok(NULL, " \n"));           
 
     memset(sending, 0, BUFFERSIZE);
-    if (strtok(NULL, " \n")!=NULL || guess==NULL || !validAlpha(guess, strlen(guess))){    
+    if (strtok(NULL, " \n")!=NULL || guess==NULL || !validAlpha(guess, strlen(guess)) || !has_active_game(id)){    
         strcpy(sending, "RWG ERR\n");
         n = sendto(fdClientUDP, sending, 8, 0, (struct sockaddr *) &addr, addrlen);
         if (n==-1){
@@ -317,20 +350,40 @@ void guess(){           //REVER QUANDO INCREMENTAR ATTEMPT
         }
         return;
     }
-    attempt++;
 
-    if (compare_word(guess, word)){
-        strcpy(status, "WIN");
+    get_variables_from_file(id, word, hint, &attempt, &thits, &errors, &max_errors);
+
+    sprintf(move, "T %s", guess);
+    if (val==attempt){
+        if (islastplay(id, move)){
+            if (!compare_word(guess, word))
+                strcpy(status, "NOK");
+        }
+        else
+            strcpy(status,"INV");
+    }
+    else if (val!=attempt+1)
+        strcpy(status,"INV");
+    else if (duplicateplay(id, move)){
+        strcpy(status, "DUP");
+        num = sprintf(sending, "RLG %s %d\n", status, attempt);
     }
     else{
-        errors++;
-        if (errors>=max_errors){
-            strcpy(status,"OVR");
+        attempt++;
+        if (compare_word(guess, word)){
+            strcpy(status, "WIN");              //acabar jogo e fazer ficheiro de score
         }
-            
-        else {
-            strcpy(status,"NOK");
+        else{
+            errors++;
+            if (errors>=max_errors){
+                strcpy(status,"OVR");
+            }
+                
+            else {
+                strcpy(status,"NOK");
+            }
         }
+        update_file(id, move, word, hint, attempt, thits, errors, max_errors);
     }
     
     num = sprintf(sending, "RWG %s %d\n", status, attempt);
@@ -342,21 +395,52 @@ void guess(){           //REVER QUANDO INCREMENTAR ATTEMPT
         exit(1); 
     }
 
-    char move[BUFFERSIZE];
-    sprintf(move, "G %s\n", guess);
-    update_file(id, move, word, hint, attempt, thits, errors, max_errors);
     free(word);
     free(hint);
 }
 
 void hint(){
-    //ssize_t n;
+    int num;
     char* id;
-    memset(buffer, 0, BUFFERSIZE);
-    id = strtok(NULL, " \n");
-    char* hintim = get_hint(id);
-    printf("hint: %s\n", hintim);
+    long int fsize;
+    size_t n;
 
+    id = strtok(NULL, " \n");
+    char* fname = get_hint(id);
+    memset(sending, 0, BUFFERSIZE);
+    FILE *file = fopen("test.jpg", "r");             //Alterar no fim
+    if (file == NULL){
+        num = sprintf(sending, "RHL NOK\n");
+        writeTCP(fdClientTCP, sending, num);
+        return;
+    }
+      
+    /* fseek(file, 0, SEEK_END);
+	fsize = ftell(file);
+    printf("hint size: %ld\n", fsize); */
+    fseek(file, 0L, SEEK_END);
+    fsize = ftell(file);
+        
+    num = sprintf(sending, "RHL OK %s %ld ", fname, fsize);
+    printf("sending: %s", sending);
+    writeTCP(fdClientTCP, sending, num);
+    fclose(file);
+
+    printf("chegou ao loop\n");
+    file = fopen("test.jpg", "rb"); 
+    while (fsize>0){
+        memset(sending, 0, BUFFERSIZE);
+        n = fread(sending, 1, BUFFERSIZE, file);
+        fsize-=n;
+        writeTCP(fdClientTCP, sending, n);
+        printf("sending: %s\n", sending);
+        printf("bytes: %ld\n", n);
+    }
+    memset(&sending[0], '\n', 1);
+    writeTCP(fdClientTCP, sending, 1);
+    fclose(file);
+
+        
     /*
     int n = 0;
     int siz = 0;
@@ -394,7 +478,7 @@ void hint(){
         memset(Sbuf, 0, sizeof(Sbuf));
     }
     */
-    free(hintim);
+    free(fname);
 }
 
 
@@ -514,7 +598,7 @@ void initGSTCP(){
     fdClientTCP = socket(AF_INET, SOCK_STREAM, 0); //TCP socket
     if(fdClientTCP == -1)
         exit(1);
-    memset(&hintsClientTCP,0,sizeof hintsClientTCP);
+    memset(&hintsClientTCP,0,sizeof hintsClientTCP);            //talvez separar
     hintsClientTCP.ai_family=AF_INET;
     hintsClientTCP.ai_socktype=SOCK_STREAM;
     hintsClientTCP.ai_flags=AI_PASSIVE;
@@ -648,10 +732,15 @@ void writeTCP(int fd, char buffer[], ssize_t buffer_len){
     nleft = buffer_len;
     while(nleft>0){
         nwritten=write(fd,ptr,nleft);
-        if(nwritten<=0)/*error*/
+        if (nwritten==0)
+            break;
+        if(nwritten<0)/*error*/{
+            printf("FDS\n");
             exit(1);
+        }
         nleft-=nwritten;
         ptr+=nwritten;
+        printf("nwritten: %ld\n", nwritten);
     }
     printf("SENDING TCP: %s", buffer);
 }
@@ -671,15 +760,14 @@ void TCP_operations(int fd){
         ptr=&receiving[0];
         total=0;
 
-        while ((n=read(fd, ptr, BUFFERSIZE-total))!=0){
-            if (n == -1){
-                exit(1);
-            }
+        while ((n=read(fd, ptr, BUFFERSIZE-total))>=0){
             ptr += n;
             total += n;
             if (*(ptr-1) == '\n')
                 break;
         }
+        if (n == -1)
+            exit(1);
         if (n == 0)
             break;
 
@@ -731,8 +819,46 @@ bool duplicateplay(char* plid, char *f){
         f[0]=toupper(f[0]);
     while (getline(file, tmp)){
         transform(tmp.begin(), tmp.end(), tmp.begin(), ::toupper);
-        if  (strcmp(tmp.c_str(), f)==0)
+        if  (strcmp(tmp.c_str(), f)==0){
+            file.close();
             return true;
+        }
+    }
+    file.close();
+    return false;
+}
+bool islastplay(char* plid,char* move){
+    char filename[BUFFERSIZE];
+    sprintf(filename, "GAME_%s.txt", plid);
+    
+    ifstream file(filename);
+    if (!file) {            
+        cout << "No word file was found" << endl;
+        exit(1);
+    }
+    file.seekg(-1, ios_base::end);
+    if(file.peek() == '\n')
+    {
+      file.seekg(-1, ios_base::cur);
+      for(int i= file.tellg();i > 0; i--)
+      {
+        if(file.peek() == '\n')
+        {
+          file.get();
+          break;
+        }
+        file.seekg(i, ios_base::beg);
+      }
+    }
+    string tmp;
+    getline(file, tmp);
+    printf("last: %s\n", tmp.c_str());
+    for (size_t i=0; i<strlen(move); i++) 
+        move[0]=toupper(move[0]);
+    transform(tmp.begin(), tmp.end(), tmp.begin(), ::toupper);
+    if (strcmp(tmp.c_str(), move)==0){
+        file.close();
+        return true;
     }
     file.close();
     return false;
@@ -785,3 +911,4 @@ void get_variables_from_file(char* plid, char *word, char* hint, int *attempt, i
     sscanf(tmp.c_str(), "%s %s %d %d %d %d", word, hint, attempt, thits, errors, max_errors);
     file.close();
 }
+
