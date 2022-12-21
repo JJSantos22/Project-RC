@@ -218,7 +218,7 @@ void play(){
 
     letter = strtok(NULL, " \n");
 
-    num=atoi(strtok(NULL, " \n"));
+    num = atoi(strtok(NULL, " \n"));//CUIDADO
 
     memset(sending, 0, BUFFERSIZE);
     if (strtok(NULL, " \n")!=NULL || letter==NULL || strlen(letter)!=1 || !validAlpha(letter, 1)){
@@ -260,7 +260,7 @@ void play(){
             strcpy(status,"OK");
             num = sprintf(sending, "RLG %s %d %d%s\n", status, attempt, hits, pos);
         }
-        sprintf(move, "T %c", letter[0]);
+        sprintf(move, "T %c\n", letter[0]);
         update_file(id, move, word, hint, attempt, thits, errors, max_errors);
 
     }
@@ -343,7 +343,7 @@ void guess(){           //REVER QUANDO INCREMENTAR ATTEMPT
     }
 
     char move[BUFFERSIZE];
-    sprintf(move, "G %s", guess);
+    sprintf(move, "G %s\n", guess);
     update_file(id, move, word, hint, attempt, thits, errors, max_errors);
     free(word);
     free(hint);
@@ -550,37 +550,34 @@ void create_ongoing_gamefile(char *plid, char *word, char *hint, int thits, int 
     char filename[BUFFERSIZE];
     sprintf(filename, "GAME_%s.txt", plid);
     ofstream outfile (filename);
-    char line2[]="0 ";
+    char line2[]="0";
     char line3[7];
-    char line4[4*30];
-    memset(line4, ' ', 4*30);
-    sprintf(line3, "%d  0 %d", thits, max_errors);
-
-    outfile << word << " " << hint << " " << line2 << " " << line3 << endl << line4 << endl;
-
+    sprintf(line3, "%d 0 %d", thits, max_errors);
+    outfile << word << " " << hint << " " << line2 << " " << line3 << endl;
     outfile.close();
 }
 
 void update_file(char *plid, char *add, char *word, char* hint, int attempt, int thits, int errors, int max_errors){
-    fpos_t position;
+    ofstream outfile;
+    stringstream buff;
+    string s;
     char filename[BUFFERSIZE];
     sprintf(filename, "GAME_%s.txt", plid);
-    FILE* file = fopen(filename, "w");
-    fgetpos (file, &position);
-    sprintf(buffer, "%s %s %d %d %d %d\n", word, hint, attempt, thits, errors, max_errors);
-    printf("BUFFER UPDATE: %s\n", buffer);
-    fsetpos (file, &position);
-    fputs (buffer, file);
-    char buffer[37];
-    memset(buffer, 0, BUFFERSIZE);
 
+    ifstream sfile (filename);
+    buff << sfile.rdbuf();
+    s=buff.str();
+    s = s.substr(s.find_first_of("\n")+1, s.length()-1);
+    s.append(add);
+    sfile.close();
     
+    FILE* file = fopen(filename, "w");
+    sprintf(buffer, "%s %s %d %d %d %d\n", word, hint, attempt, thits, errors, max_errors);
+    fputs (buffer, file);
     fclose(file);
-    ofstream outfile;
 
     outfile.open(filename, ios_base::app); // update instead of overwrite
-    outfile << add << endl; 
-
+    outfile << s.c_str(); 
     outfile.close();
 }
 

@@ -233,6 +233,10 @@ void play(){    //no server se for letra repetida
         cout << "Unexpected response" << endl;
         exit(1); 
     }
+    else if (strcmp(status, "INV") == 0){
+        cout << "Unexpected response" << endl;
+        return;
+    }
 
     attempt = atoi(strtok(NULL, " \n"));
     
@@ -306,100 +310,77 @@ void guess(){
     attempt = atoi(strtok(NULL, " \n"));
 }
 
-void hint(){
-
-    ifstream image;
+void hint(){        //The Player displays the name and size of the stored file
     ssize_t n;
     int num;
     char* ptr;
-    char* f;
-    char* status;
-    char* fname;
-    char* sfsize;
-    char* fdata;
     int total;
+    int blank = 0; 
+    int size=0;
+    int offset;
+    char f[4];
+    char status[6];
+    char fname[BUFFERSIZE];
+    
     memset(msg,0,BUFFERSIZE);
     num = sprintf(msg, "GHL %s\n", plid);
-    
-    
+ 
     printf("SENDING: %s", msg);
     writeTCP(fdServerTCP, msg, num);
 
     memset(receiving, 0, BUFFERSIZE);
     total=0;
-    ptr = &receiving[0];
-    while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))!=0){
-        if (n == -1){
-            exit(1);
-        }
+    ptr=&receiving[0];
+    while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total)) > 0){
         ptr += n;
         total += n;
-        if (*(ptr-1) == '\n'){
-            break;
+    }
+    for (offset=0; offset<BUFFERSIZE && blank<4; offset++){
+        if (receiving[offset]==' '){
+            blank++;
         }
     }
-    printf("ENVIADO\n");
-    close(fdServerTCP);
-    printf("RECEIVING: %s\n", receiving);
-    f = strtok(receiving, " \n");
-    if (strcmp(f, "RHL")!=0){
+    bzero(f, 4);
+    sscanf(receiving, "%s", f); 
+    if (strcmp(f, "RHL") != 0){
         cout << "Wrong return message from server to user" << endl;
-        exit(1); 
+        exit(1);
     }
+    printf("f: %s\n", f);
 
-    status = strtok(NULL, " \n");
-    if (strcmp(status, "ERR")==0){
-        printf("ERROR WITH COMMAND\n");
+    bzero(status, 6);
+    sscanf(receiving, "RHL %s", status);
+    if (strcmp(status, "NOK") == 0){
+        cout << "Something went wrong." << endl; 
         return;
-    } 
-    else if (strcmp(status, "NOK")==0){
-        cout << "Error getting hint" << endl;
-        return; 
     }
-    else if (strcmp(status, "OK")!=0){
-        cout << "Unexpected response" << endl;
-        exit(1); 
+    else if (strcmp(status,"OK") != 0){
+        cout << "Wrong return messsage from server to user." << endl;
+        exit(1);
     }
-    
-    fname = strtok(NULL, " \n");
-    printf("name: %s\n", fname);
+    printf("status: %s\n", status);
 
-    sfsize = strtok(NULL, " \n");
-    int fsize=atoi(sfsize);
-    printf("sizec: %s\n", sfsize);
-    printf("sizei: %d\n", fsize);
+    bzero(fname, BUFFERSIZE);
+    sscanf(receiving, "RHL OK %s %d", fname, &size);
+    printf("fname: %s\nsize: %d\n", fname, size);
+    FILE *file = fopen(fname, "w");
+    fwrite(&receiving[offset], 1, BUFFERSIZE-offset, file);
 
-    fdata = strtok(NULL, " \n");
-    printf("data: %s\n", fdata);
-    FILE *fptr = fopen(fname, "wb");
-    fwrite(fdata,1,sizeof(fdata), fptr);
-    fptr += sizeof(fdata);
-    fsize-=sizeof(fdata);
-    while (fsize>0) {
+    size-=(BUFFERSIZE-offset-1);
+    while (size>0){
         memset(receiving, 0, BUFFERSIZE);
-        ptr = &receiving[0];
-        total = 0;
-        while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))!=0){
-            if (n == -1){
-                exit(1);
-            }
+        total=0;
+        ptr=&receiving[0];
+        while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))>0){
             ptr += n;
             total += n;
-            if (*(ptr-1) == '\n'){
-                break;
-            }
         }
-        fsize -= total;
-        printf("size: %d buffer: %s\n", total, receiving);
-
-        if (*(ptr-1) == '\n'){
-            break;
-        }
-        fwrite(receiving,1, total, fptr);
-        fptr += total;
+        size-=total;
+        fwrite(&receiving[0], 1, total, file);
     }
-
-    fclose(fptr);
+    
+    fclose(file);
+    close(fdServerTCP);
 
 
     /*recebe hint ou h do input
@@ -475,53 +456,85 @@ void quit(){
 }
 
 void scoreboard(){
-
     int total;
     ssize_t n;
     int num;
-    char f[3];
-    char status[3]; 
     char* ptr;
+    char f[4];
+    char status[6];
+    //char* fdata;
+    int blank = 0; 
+    int offset;
+    int size;
+    char fname[BUFFERSIZE];
 
     memset(msg,0,BUFFERSIZE);
     num = sprintf(msg, "GSB\n");
     
-    printf("SENDING: %s", msg);
     writeTCP(fdServerTCP, msg, num);
-    printf("ENVIADO\n");
-
+    
     memset(receiving, 0, BUFFERSIZE);
     total=0;
-    ptr = &receiving[0];
+    ptr=&receiving[0];
     while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))>0){
-        if (n == -1){
-            exit(1);
-        }
         ptr += n;
         total += n;
-        printf("%s", receiving);
-        if (*(ptr-1) == '\n'){
-            break;
+    }
+    printf("receiving: %s\n", receiving);
+    for (offset=0; offset<BUFFERSIZE && blank<4; offset++){
+        if (receiving[offset]=='\n'){ //empty
+            blank=4;
         }
+        else if (receiving[offset]==' '){
+            blank++;
+        }
+    }      
+    bzero(f, 4);
+    sscanf(receiving, "%s", f); 
+    if (strcmp(f, "RSB") != 0){
+        cout << "Wrong return message from server to user" << endl;
+        exit(1);
+    }
+    printf("f: %s\n", f);
+
+    bzero(status, 6);
+    sscanf(receiving, "RSB %s", status);
+    if (strcmp(status, "EMPTY") == 0){
+        cout << "The scoreboard is empty." << endl; 
+        return;
+    }
+    else if (strcmp(status,"OK") != 0){
+        cout << "Wrong return messsage from server to user." << endl;
+        exit(1);
+    }
+    printf("status: %s\n", status);
+    
+    bzero(fname, BUFFERSIZE);
+    sscanf(receiving, "RSB OK %s %d", fname, &size);
+    printf("fname: %s\nsize: %d\n", fname, size);
+    FILE *file = fopen(fname, "w");
+    fwrite(&receiving[offset+1], 1, BUFFERSIZE-offset-1, file);
+    
+    size-=(BUFFERSIZE-offset-1);
+    while (size>0){
         memset(receiving, 0, BUFFERSIZE);
         total=0;
-        ptr = &receiving[0];
+        ptr=&receiving[0];
+        while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))>0){
+            ptr += n;
+            total += n;
+        }
+        size-=total;
+        fwrite(&receiving[0], 1, total, file);
     }
-    /* strtok(receiving, " \n");
-    while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))>0){
-        printf("Receiving\n");
-        if (n == -1){
-            exit(1);
-        }
-        ptr += n;
-        total += n;
-        printf("RECEIVING: %s\n", receiving);
-        if (*(ptr-1) == '\n'){
-            break;
-        }
-    } */
-
+    
+    fclose(file);
     close(fdServerTCP);
+
+
+
+    
+    
  
 
 }
