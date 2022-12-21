@@ -613,9 +613,10 @@ void scoreboard(){
     sscanf(receiving, "RSB OK %s %d", fname, &size);
     printf("fname: %s\nsize: %d\n", fname, size);
     FILE *file = fopen(fname, "w");
-    fwrite(&receiving[offset+1], 1, BUFFERSIZE-offset-1, file);
+    fwrite(&receiving[offset], 1, BUFFERSIZE-offset, file);
     
     size-=(BUFFERSIZE-offset-1);
+    printf("%s", &receiving[offset]);
     while (size>0){
         memset(receiving, 0, BUFFERSIZE);
         total=0;
@@ -625,10 +626,13 @@ void scoreboard(){
             total += n;
         }
         size-=total;
-        if (total==BUFFERSIZE)
+        if (total==BUFFERSIZE){
             fwrite(&receiving[0], 1, total, file);
-        else 
+        }
+        else {
             fwrite(&receiving[0], 1, total-1, file);
+        }
+        printf("%s", receiving);
     }
     
     fclose(file);

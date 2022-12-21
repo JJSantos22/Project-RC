@@ -470,6 +470,38 @@ void quit_exit(){
 
 void scoreboard(){
 
+    int num;
+    char* id;
+    long int fsize;
+    size_t n;
+
+    id = strtok(NULL, " \n");
+    char* fname = "TOPSCORES_0015863.txt";
+    memset(sending, 0, BUFFERSIZE);
+
+    FILE *file = fopen("TOPSCORES_0015863.txt", "r");             //Alterar no fim
+    if (file == NULL){
+        num = sprintf(sending, "RSB EMPTY\n");                    //alterar
+        writeTCP(fdClientTCP, sending, num);
+        return;
+    }
+
+    fseek(file, 0L, SEEK_END);
+    fsize = ftell(file);
+        
+    num = sprintf(sending, "RSB OK %s %ld ", fname, fsize);
+    writeTCP(fdClientTCP, sending, num);
+    fseek(file, 0L, SEEK_SET);
+    while (fsize>0){
+        memset(sending, 0, BUFFERSIZE);
+        n = fread(sending, 1, BUFFERSIZE, file);
+        fsize-=n;
+        writeTCP(fdClientTCP, sending, n);
+    }
+    memset(&sending[0], '\n', 1);
+    writeTCP(fdClientTCP, sending, 1);
+    fclose(file);
+
 }
 
 void state(){

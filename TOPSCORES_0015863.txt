@@ -1,0 +1,16 @@
+------------------------------- TOP 10 SCORES --------------------------------
+
+    SCORE PLAYER     WORD                             GOOD TRIALS  TOTAL TRIALS
+
+ 1 - 100  105313  thunderbird                             1             1 
+ 2 - 100  105313  xiphophorus                             1             1 
+ 3 - 100  099340  usb                                     2             2 
+ 4 - 100  099340  vaccine                                 2             2 
+ 5 - 100  099338  usb                                     1             1 
+ 6 - 100  099320  ferromagnetism                          3             3 
+ 7 - 100  099320  electroencephalographical               1             1 
+ 8 - 100  099312  usb                                     3             3 
+ 9 - 100  099311  thunderbird                             1             1 
+10 - 100  099300  usb                                     1             1 
+
+
