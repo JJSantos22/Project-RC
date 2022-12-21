@@ -59,7 +59,6 @@ int main(int argc, char* argv[]){
     readStartingInput(argc, argv);
     initUDP();
     initTCP();
-    connectTCP();
 
     while (1){
         memset(buffer, 0, BUFFERSIZE);
@@ -78,9 +77,11 @@ int main(int argc, char* argv[]){
             guess();
         }
         else if (strcmp(f,"hint") == 0 || strcmp(f,"h") == 0){
+            connectTCP();
             hint();
         }
         else if (strcmp(f,"state") == 0 || strcmp(f,"st") == 0){
+            connectTCP();
             state();
         }
         else if (strcmp(f,"quit") == 0){
@@ -90,6 +91,7 @@ int main(int argc, char* argv[]){
             exit();
         }
         else if (strcmp(f,"scoreboard") == 0){
+            connectTCP();
             scoreboard();
         }
         else {
@@ -376,7 +378,10 @@ void hint(){        //The Player displays the name and size of the stored file
             total += n;
         }
         size-=total;
-        fwrite(&receiving[0], 1, total, file);
+        if (total==BUFFERSIZE)
+            fwrite(&receiving[0], 1, total, file);
+        else 
+            fwrite(&receiving[0], 1, total-1, file);
     }
     
     fclose(file);
@@ -394,6 +399,89 @@ void hint(){        //The Player displays the name and size of the stored file
 }
 
 void state(){
+
+    ssize_t n;
+    int num;
+    char* ptr;
+    int total;
+    int blank = 0; 
+    int size=0;
+    int offset;
+    char f[4];
+    char status[4];
+    char fname[BUFFERSIZE];
+    
+    memset(msg,0,BUFFERSIZE);
+    num = sprintf(msg, "STA %s\n", plid);
+ 
+    printf("SENDING: %s", msg);
+    writeTCP(fdServerTCP, msg, num);
+
+    memset(receiving, 0, BUFFERSIZE);
+    total=0;
+    ptr=&receiving[0];
+    while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total)) > 0){
+        ptr += n;
+        total += n;
+    }
+    printf("n: %ld\n", n);
+    printf("receiving: %s\n", receiving);
+    for (offset=0; offset<BUFFERSIZE && blank<4; offset++){
+        if (receiving[offset]==' '){
+            blank++;
+        }
+    }
+    bzero(f, 4);
+    sscanf(receiving, "%s", f);
+    printf("F:%s\n",f);
+    if (strcmp(f, "RST") != 0){
+        cout << " Aquic Wrong return message from server to user" << endl;
+        exit(1);
+    }
+    //printf("f: %s\n", f);
+
+    bzero(status, 4);
+    sscanf(receiving, "RST %s", status);
+    //printf("status: %s\n", status);
+
+    if (strcmp(status, "NOK") == 0){
+        cout << "No games(active or finished) for this player." << endl; 
+        close(fdServerTCP);
+        return;
+    }
+    else if (strcmp(status,"ACT") != 0 && strcmp(status,"FIN") != 0){
+        //Algo correu mal
+        cout << "Wrong return messsage from server to user." << endl;
+        exit(1);
+    }
+
+    bzero(fname, BUFFERSIZE);
+    sscanf(receiving, "RST ACT %s %d", fname, &size);
+    FILE *file = fopen(fname, "w");
+    fwrite(&receiving[offset], 1, BUFFERSIZE-offset, file);
+
+    size-=(BUFFERSIZE-offset-1);
+    printf("%s", &receiving[offset]);
+    while (size > 0){
+        memset(receiving, 0, BUFFERSIZE);
+        total=0;
+        ptr=&receiving[0];
+        while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))>0){
+            ptr += n;
+            total += n;
+        }
+        size-=total;
+        if (total==BUFFERSIZE){
+            fwrite(&receiving[0], 1, total, file);
+        }
+        else{
+            fwrite(&receiving[0], 1, total-1, file);
+        }
+        printf("%s", receiving);
+    }
+    
+    fclose(file);
+    close(fdServerTCP);
     /*recebe state ou st do input
     
     estabelece uma conexao TCP
@@ -525,18 +613,14 @@ void scoreboard(){
             total += n;
         }
         size-=total;
-        fwrite(&receiving[0], 1, total, file);
+        if (total==BUFFERSIZE)
+            fwrite(&receiving[0], 1, total, file);
+        else 
+            fwrite(&receiving[0], 1, total-1, file);
     }
     
     fclose(file);
     close(fdServerTCP);
-
-
-
-    
-    
- 
-
 }
 
 void exit(){
