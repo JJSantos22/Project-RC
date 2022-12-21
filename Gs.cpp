@@ -226,8 +226,6 @@ void play(){
     if (hint==NULL){
         exit(1);
     }
-    
-    
 
     id = strtok(NULL, " \n");
 
@@ -237,8 +235,6 @@ void play(){
         perror("Error: ");
         exit(1);
     }
-
-    
 
     letter = strtok(NULL, " \n");
 
@@ -414,71 +410,21 @@ void hint(){
         writeTCP(fdClientTCP, sending, num);
         return;
     }
-      
-    /* fseek(file, 0, SEEK_END);
-	fsize = ftell(file);
-    printf("hint size: %ld\n", fsize); */
     fseek(file, 0L, SEEK_END);
     fsize = ftell(file);
         
     num = sprintf(sending, "RHL OK %s %ld ", fname, fsize);
-    printf("sending: %s", sending);
     writeTCP(fdClientTCP, sending, num);
-    fclose(file);
-
-    printf("chegou ao loop\n");
-    file = fopen("test.jpg", "rb"); 
+    fseek(file, 0L, SEEK_SET);
     while (fsize>0){
         memset(sending, 0, BUFFERSIZE);
         n = fread(sending, 1, BUFFERSIZE, file);
         fsize-=n;
         writeTCP(fdClientTCP, sending, n);
-        printf("sending: %s\n", sending);
-        printf("bytes: %ld\n", n);
     }
     memset(&sending[0], '\n', 1);
     writeTCP(fdClientTCP, sending, 1);
     fclose(file);
-
-        
-    /*
-    int n = 0;
-    int siz = 0;
-    FILE *picture;
-    char buf[50];
-    char *s="";
-
-    cout << "Getting image size" << endl;
-    picture = fopen("C:\\Users\\n.b\\Desktop\\c++\\TCP\\tcp_client_image_pp\\test.jpg", "r"); 
-    fseek(picture, 0, SEEK_END);
-    siz = ftell(picture);
-    cout << siz << endl; // Output 880
-
-    cout << "Sending picture size to the server" << endl;
-    sprintf(buf, "%d", siz);
-    if((n = send(sock, buf, sizeof(buf), 0)) < 0)
-    {
-            perror("send_size()");
-            exit(errno);
-    }
-
-    char Sbuf[siz];
-    cout << "Sending the picture as byte array" << endl;
-    fseek(picture, 0, SEEK_END);
-    siz = ftell(picture);
-    fseek(picture, 0, SEEK_SET); //Going to the beginning of the file
-
-    while(!feof(picture)){
-        fread(Sbuf, sizeof(char), sizeof(Sbuf), picture);
-        if((n = send(sock, Sbuf, sizeof(Sbuf), 0)) < 0)
-        {
-            perror("send_size()");
-            exit(errno);
-        }
-        memset(Sbuf, 0, sizeof(Sbuf));
-    }
-    */
-    free(fname);
 }
 
 
@@ -527,6 +473,55 @@ void scoreboard(){
 }
 
 void state(){
+
+    /*int num;
+    char* id;
+    long int fsize;
+    size_t n;
+
+    id = strtok(NULL, " \n"); 
+
+    if (!validPLID(id)){
+        printf("Invalid PLID");
+        exit(1);
+    }
+
+    if (has_active_game()
+
+
+    char* fname = get_hint(id);
+    memset(sending, 0, BUFFERSIZE);
+    FILE *file = fopen("test.jpg", "r");             //Alterar no fim
+    if (file == NULL){
+        num = sprintf(sending, "RST NOK\n");
+        writeTCP(fdClientTCP, sending, num);
+        return;
+    }
+      
+     fseek(file, 0, SEEK_END);
+	fsize = ftell(file);
+    printf("hint size: %ld\n", fsize); */
+    /* fseek(file, 0L, SEEK_END);
+    fsize = ftell(file);
+        
+    num = sprintf(sending, "RHL OK %s %ld ", fname, fsize);
+    printf("sending: %s", sending);
+    writeTCP(fdClientTCP, sending, num);
+    fclose(file);
+
+    printf("chegou ao loop\n");
+    file = fopen("test.jpg", "rb"); 
+    while (fsize>0){
+        memset(sending, 0, BUFFERSIZE);
+        n = fread(sending, 1, BUFFERSIZE, file);
+        fsize-=n;
+        writeTCP(fdClientTCP, sending, n);
+        printf("sending: %s\n", sending);
+        printf("bytes: %ld\n", n);
+    }
+    memset(&sending[0], '\n', 1);
+    writeTCP(fdClientTCP, sending, 1);
+    fclose(file); */
 
 }
 
@@ -751,6 +746,7 @@ void TCP_operations(int fd){
 	freeaddrinfo(resClientTCP);
 	close(fdClientTCP);
 
+    fdClientTCP=fd;
     
     char* f;
     char* ptr;
@@ -770,10 +766,7 @@ void TCP_operations(int fd){
             exit(1);
         if (n == 0)
             break;
-
-        printf("Receiving: %s", receiving); 
         f = strtok(receiving, " \n");
-        printf("F:%s\n",f);
         if (strcmp(f, "GSB")==0)
             scoreboard();
         else if (strcmp(f, "GHL")==0){
