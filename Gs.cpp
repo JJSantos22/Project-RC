@@ -495,8 +495,10 @@ void quit_exit(){
         return;
     }
     
-    if (has_active_game(id))
+    if (has_active_game(id)){
         strcpy(status, "OK");
+        create_finished_game_file(id, 'Q');
+    }
     else{
         strcpy(status, "NOK");
     }  
