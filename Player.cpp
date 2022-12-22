@@ -399,16 +399,6 @@ void hint(){        //The Player displays the name and size of the stored file
     
     fclose(file);
     close(fdServerTCP);
-
-
-    /*recebe hint ou h do input
-    
-    estabelece uma conexão TCP
-    
-    envia "GHL (plid)\n"
-    
-    recebe "RHL (status) (Fname Fsize Fdata)\n"
-    */
 }
 
 void state(){
@@ -460,13 +450,19 @@ void state(){
         close(fdServerTCP);
         return;
     }
-    else if (strcmp(status,"ACT") != 0 && strcmp(status,"FIN") != 0){
+    else if (strcmp(status,"ACT") == 0){
+        sscanf(receiving, "RST ACT %s %d", fname, &size);
+    } 
+    else if(strcmp(status,"FIN") == 0){
+        sscanf(receiving, "RST FIN %s %d", fname, &size);
+    }
+    else{
         cout << "Wrong return messsage from server to user." << endl;
         exit(1);
     }
+    
 
     bzero(fname, BUFFERSIZE);
-    sscanf(receiving, "RST ACT %s %d", fname, &size);
     FILE *file = fopen(fname, "w");
     fwrite(&receiving[offset], 1, BUFFERSIZE-offset, file);
 
@@ -794,7 +790,7 @@ void connectTCP(){
     hintsServerTCP.ai_family=AF_INET;
     hintsServerTCP.ai_socktype=SOCK_DGRAM;
 
-    errcode= getaddrinfo(GSip, GSport, &hintsServerTCP, &resServerTCP);
+    errcode = getaddrinfo(GSip, GSport, &hintsServerTCP, &resServerTCP);
     if(errcode!=0)/*error*/
         exit(1);
 
