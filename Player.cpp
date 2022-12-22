@@ -209,15 +209,15 @@ void play(){    //no server se for letra repetida
     if (strcmp(status, "ERR")==0){
         printf("ERROR WITH COMMAND\n");
         return;
-    } 
-    
-    attempt = atoi(strtok(NULL, " \n"));
-    
-    if (strcmp(status, "DUP")==0){
+    }     
+    else if (strcmp(status, "DUP")==0){
         printf("JOGADA DUPLICADA\n");
         return; 
     }
-    else if (strcmp(status, "WIN")==0){
+
+    attempt = atoi(strtok(NULL, " \n"));
+
+    if (strcmp(status, "WIN")==0){
         for (int e=0; e<word_len; e++){
             if (l[2*e]!='_')
                 continue;
@@ -294,6 +294,10 @@ void guess(){
         printf("ERROR WITH COMMAND\n");
         return;
     } 
+    else if (strcmp(status, "DUP")==0){
+        printf("JOGADA DUPLICADA\n");
+        return; 
+    }
     
     attempt = atoi(strtok(NULL, " \n"));
     
@@ -302,10 +306,6 @@ void guess(){
             l[2*e] = toupper(word[e]);
         }
         printf("WELL DONE! You guessed: %s\n", l);
-    }
-    else if (strcmp(status, "DUP")==0){
-        printf("JOGADA DUPLICADA\n");
-        return; 
     }
     else if (strcmp(status, "OVR")==0){
         printf("Wrong guess\nNO MORE TRIES... GAME OVER...\n");

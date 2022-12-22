@@ -38,6 +38,7 @@ char *wfile;    //free no fim
 char *aux_word; 
 char *aux_hint; 
 int lines=0;
+int countword=0;
 ifstream wordfile;
 
 struct timeval t;
@@ -55,8 +56,8 @@ void initGSUDP();
 void initGSTCP();
 void initDB();
 void connectTCP();
-void create_ongoing_game_file(char *plid, char *word, char *hint, int thits, int max_errors);
-void update_file(char *plid, char *add, char *word, char* hint, int attempt, int thits, int errors, int max_errors);
+void create_ongoing_game_file(char *plid, char *word, char *hint);
+void update_file(char *plid, char *add);
 void start();
 void play();
 void guess();
@@ -69,16 +70,18 @@ bool validPLID(char *string);
 bool validAlpha(char *string, size_t n);
 int get_max_errors(char* word);
 void choose_word();
-int letter_in_word(char* word, char* letter, char* pos, int word_len);
+int letter_in_word(char* word, char letter, char* pos, int word_len);
 void writeTCP(int fd, char buffer[], ssize_t buffer_len);
 bool duplicateplay(char* plid, char *f);
 bool compare_word(char* guess, char* word);
-char* get_hint(char* plid);
-char* get_word(char* plid);
 bool has_active_game(char* plid);
 void create_finished_game_file(char* plid, char code);
 void create_score_file(char *plid, char *time_str, char* dfilename);
-void get_variables_from_file(char* plid, char *word, char* hint, int *attempt, int *thits, int *errors, int *max_errors);
+char* get_hint(char* plid);
+char* get_word(char* plid);
+int get_thits(char* plid, char* word);
+int get_attempt(char* plid);
+int get_errors(char* plid, char* word);
 bool islastplay(char* plid,char* move);
 char* get_time_string();
 
@@ -147,10 +150,8 @@ void start(){
     ssize_t n;
     int num;
     char status[4];
-    int thits;
     int max_errors;
     int attempt;
-    int errors;
     
     char* plid = create_string(strtok(NULL, " \n"));
     
@@ -165,11 +166,9 @@ void start(){
         return;
     }
 
-
     if (!has_active_game(plid)){
         choose_word();
         printf("W: %s\n",aux_word);
-        thits = strlen(aux_word); 
         max_errors = get_max_errors(aux_word);
         if (max_errors==-1){
             cout << "Invalid word size" << endl;
@@ -177,30 +176,28 @@ void start(){
         }
         strcpy(status,"OK");
         num = sprintf(sending, "RSG %s %ld %d\n", status, strlen(aux_word), max_errors);
-        create_ongoing_game_file(plid, aux_word, aux_hint, thits, max_errors);
-        free(aux_word);
+        create_ongoing_game_file(plid, aux_word, aux_hint);
         free(aux_hint);
+        free(aux_word);
     }
     else{
-        aux_word=(char*) calloc(BUFFERSIZE, sizeof(char));          
-        if (aux_word==NULL){
-            exit(1);
-        }
-        aux_hint=(char*) calloc(BUFFERSIZE, sizeof(char));          
-        if (aux_hint==NULL){
-            exit(1);
-        }
-        get_variables_from_file(plid, aux_word, aux_hint, &attempt, &thits, &errors, &max_errors);
+        
+        attempt=get_attempt(plid);
         if (attempt>0){
             strcpy(status,"NOK");
             num = sprintf(sending, "RSG %s\n", status);
         }
         else{
+            aux_word=(char*) calloc(BUFFERSIZE, sizeof(char));          
+            if (aux_word==NULL){
+                exit(1);
+            }
+            aux_word=get_word(plid);
+            max_errors=get_max_errors(aux_word);
             strcpy(status,"OK");
             num = sprintf(sending, "RSG %s %ld %d\n", status, strlen(aux_word), max_errors);
+            free(aux_word);
         }
-        free(aux_word);
-        free(aux_hint);
     }
 
     printf("SENDING: %s", sending);
@@ -210,7 +207,6 @@ void start(){
         cout << "Unable to send from server to user" << endl;
         exit(1); 
     }
-
     free(plid);
 }
 
@@ -230,10 +226,6 @@ void play(){
     if (word==NULL){
         exit(1);
     }
-    char *hint=(char*) calloc(BUFFERSIZE, sizeof(char));         
-    if (hint==NULL){
-        exit(1);
-    }
 
     id = strtok(NULL, " \n");
     if (id==NULL || strlen(id)!=6 || !validPLID(id) || !has_active_game(id)){                     //Invalid input format
@@ -246,12 +238,12 @@ void play(){
         return;
     }
 
-    get_variables_from_file(id, word, hint, &attempt, &thits, &errors, &max_errors);
     char* pos = (char*)calloc((strlen(word)*2), sizeof(char));
     if (pos == NULL){
         perror("Error: ");
         exit(1);
     }
+
 
     letter = strtok(NULL, " \n");
 
@@ -267,11 +259,20 @@ void play(){
         }
         return;
     }
+
+    word=get_word(id);
+    int phits=get_thits(id, word);
+    attempt=get_attempt(id);
+    errors=get_errors(id, word);
+    thits=strlen(word);
+    thits-=phits;
+    max_errors=get_max_errors(word);
+
     sprintf(move, "T %c", toupper(letter[0]));
     if (val==attempt){
         if(islastplay(id, move)){
             strcpy(status,"OK");
-            int hits = letter_in_word(word, letter, pos, strlen(word)); 
+            int hits = letter_in_word(word, letter[0], pos, strlen(word)); 
             num = sprintf(sending, "RLG %s %d %d%s\n", status, attempt, hits, pos);
         }
         else{
@@ -288,7 +289,7 @@ void play(){
         num = sprintf(sending, "RLG %s %d\n", status, attempt);
     }
     else{
-        int hits = letter_in_word(word, letter, pos, strlen(word)); 
+        int hits = letter_in_word(word, letter[0], pos, strlen(word)); 
         thits-=hits;
         attempt++;
         if (thits==0){
@@ -312,7 +313,7 @@ void play(){
             num = sprintf(sending, "RLG %s %d %d%s\n", status, attempt, hits, pos);
         }
         sprintf(move, "T %c\n", letter[0]);
-        update_file(id, move, word, hint, attempt, thits, errors, max_errors);
+        update_file(id, move);
 
     }
     
@@ -332,7 +333,6 @@ void play(){
     }
     free(pos);
     free(word);
-    free(hint);
 }
 
 void guess(){           
@@ -343,7 +343,6 @@ void guess(){
     char status[4];
     int val;
     int attempt;
-    int thits;
     int errors;
     int max_errors;
     char move[BUFFERSIZE];
@@ -351,11 +350,10 @@ void guess(){
     if (word==NULL){
         exit(1);
     }
-    char *hint=(char*) calloc(BUFFERSIZE, sizeof(char));            
+    char *hint=(char*) calloc(BUFFERSIZE, sizeof(char));         
     if (hint==NULL){
         exit(1);
     }
-
     id = strtok(NULL, " \n");
     if (id==NULL || strlen(id)!=6 || !validPLID(id) || !has_active_game(id)){                     //Invalid input format
         strcpy(sending, "RWG ERR\n");
@@ -380,7 +378,10 @@ void guess(){
         return;
     }
 
-    get_variables_from_file(id, word, hint, &attempt, &thits, &errors, &max_errors);
+    word=get_word(id);
+    max_errors=get_max_errors(word);
+    attempt=get_attempt(id);
+    errors=get_errors(id, word);
 
     sprintf(move, "G %s", guess);
     if (val==attempt){
@@ -412,7 +413,8 @@ void guess(){
                 strcpy(status,"NOK");
             }
         }
-        update_file(id, move, word, hint, attempt, thits, errors, max_errors);
+        sprintf(move, "G %s\n", guess);
+        update_file(id, move);
     }
 
     if (strcmp(status, "WIN")==0) {
@@ -432,7 +434,6 @@ void guess(){
     }
 
     free(word);
-    free(hint);
 }
 
 void hint(){
@@ -671,7 +672,6 @@ void initGSUDP(){
 }
 
 void initGSTCP(){
-    int n;
 
     fdClientTCP = socket(AF_INET, SOCK_STREAM, 0); //TCP socket
     if(fdClientTCP == -1)
@@ -711,14 +711,11 @@ void initDB(){
         closedir(dir);
 }
 
-void create_ongoing_game_file(char *plid, char *word, char *hint, int thits, int max_errors){
+void create_ongoing_game_file(char *plid, char *word, char *hint){
     char filename[BUFFERSIZE];
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ofstream outfile (filename);
-    char line2[]="0";
-    char line3[7];
-    sprintf(line3, "%d 0 %d", thits, max_errors);
-    outfile << word << " " << hint << " " << line2 << " " << line3 << endl;
+    outfile << word << " " << hint << endl;
     outfile.close();
 }
 
@@ -745,13 +742,11 @@ void create_score_file(char *plid, char *time_str, char* dfilename) {
     char *word=(char*) calloc(BUFFERSIZE, sizeof(char));
     if (word==NULL)
         exit(1);
-    char *hint=(char*) calloc(BUFFERSIZE, sizeof(char));
-    if (hint==NULL)
-        exit(1);
-    int attempt, thits, errors, max_errors;
+    int attempt, errors;
 
-
-    get_variables_from_file(plid, word, hint, &attempt, &thits, &errors, &max_errors);
+    word = get_word(plid);
+    attempt = get_attempt(plid);
+    errors = get_errors(plid, word);
 
     int succ = (attempt-errors)*100;
     int score = succ/attempt;
@@ -780,7 +775,6 @@ void create_score_file(char *plid, char *time_str, char* dfilename) {
     sprintf(command, "rm %s", dfilename);
     system(command);
     free(word);
-    free(hint);
 }
 
 void create_finished_game_file(char* plid, char code){ //ADD CHAR CODE 
@@ -819,27 +813,13 @@ void create_finished_game_file(char* plid, char code){ //ADD CHAR CODE
 }
 
 
-void update_file(char *plid, char *add, char *word, char* hint, int attempt, int thits, int errors, int max_errors){
+void update_file(char *plid, char *add){
     ofstream outfile;
-    stringstream buff;
-    string s;
     char filename[BUFFERSIZE];
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
 
-    ifstream sfile (filename);
-    buff << sfile.rdbuf();
-    s=buff.str();
-    s = s.substr(s.find_first_of("\n")+1, s.length()-1);
-    s.append(add);
-    sfile.close();
-    
-    FILE* file = fopen(filename, "w");
-    sprintf(buffer, "%s %s %d %d %d %d\n", word, hint, attempt, thits, errors, max_errors);
-    fputs (buffer, file);
-    fclose(file);
-
     outfile.open(filename, ios_base::app); // update instead of overwrite
-    outfile << s.c_str(); 
+    outfile << add; 
     outfile.close();
 }
 
@@ -854,8 +834,7 @@ char* create_string(char* p){
 }
 
 void choose_word(){
-    srand((unsigned) time(0));
-    int val = rand() % lines;
+    int val = countword;
     string tmp, w, h;
     int e=0;
 
@@ -873,13 +852,17 @@ void choose_word(){
     h = tmp.substr(tmp.find_first_of(" ")+1, tmp.length()-1);
     aux_word = create_string(&w[0]);
     aux_hint = create_string(&h[0]);
+    if (countword==lines-1)
+        countword=0;
+    else
+        countword++;
 }
 
-int letter_in_word(char* word, char* letter, char* pos, int word_len){
+int letter_in_word(char* word, char letter, char* pos, int word_len){
     int hits=0;
     char add[3];
     for (int i=0; i<word_len; i++){
-        if (toupper(word[i]) == toupper(letter[0])){
+        if (toupper(word[i]) == toupper(letter)){
             hits++;
             sprintf(add, " %d", i+1);
             strcat(pos, add);
@@ -1086,7 +1069,7 @@ bool has_active_game(char* plid){
     return true;
 }
 
-void get_variables_from_file(char* plid, char *word, char* hint, int *attempt, int *thits, int *errors, int *max_errors){
+int get_thits(char* plid, char* word){
     char filename[BUFFERSIZE];
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ifstream file(filename);
@@ -1095,8 +1078,67 @@ void get_variables_from_file(char* plid, char *word, char* hint, int *attempt, i
         exit(1);
     }
     string tmp;
+    int hit=0;
     getline(file, tmp);
-    sscanf(tmp.c_str(), "%s %s %d %d %d %d", word, hint, attempt, thits, errors, max_errors);
+    while (getline(file, tmp)){
+        if (tmp.c_str()[0] == 'T' ){
+            for (size_t i=0; i<strlen(word); i++){
+                if (toupper(word[i]) == toupper(tmp.c_str()[2]))
+                    hit++;        
+            }
+        }
+    }
     file.close();
+    return hit;
 }
 
+int get_attempt(char* plid){
+    char filename[BUFFERSIZE];
+    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
+    ifstream file(filename);
+    if (!file) {            
+        cout << "No word file was found" << endl;
+        exit(1);
+    }
+    string tmp;
+    int count=0;
+    while (getline(file, tmp)){
+        count++;
+    }
+    file.close();
+    return count-1;
+}
+
+int get_errors(char* plid, char* word){
+    char filename[BUFFERSIZE];
+    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
+    ifstream file(filename);
+    if (!file) {            
+        cout << "No word file was found" << endl;
+        exit(1);
+    }
+    int errors=0;
+    int hit;
+    string tmp;
+    char w[BUFFERSIZE];
+    getline(file, tmp);
+    while (getline(file, tmp)){
+        if (tmp.c_str()[0] == 'T' ){
+            hit=0;
+            for (size_t i=0; i<strlen(word); i++){
+                if (toupper(word[i]) == toupper(tmp.c_str()[2]))
+                    hit++;        
+            }
+            if(hit<1)
+                errors++;
+        }
+        else{
+            bzero(w, BUFFERSIZE);
+            sscanf(tmp.c_str(), "%*c %s", w);
+            if (strcmp(w, word)!=0)
+                errors++;
+        }
+    }
+    file.close();
+    return errors;
+}
