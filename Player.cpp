@@ -9,7 +9,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include "utils.h"
 #include <fstream>
 
 
@@ -17,11 +16,10 @@ using namespace std;
 
 
 #define GN 60
-#define IP "tejo.tecnico.ulisboa.pt"
 #define PORT 58000
 #define BUFFERSIZE 256
 
-char* plid;                     //Verificar necessidade
+char* plid;                     
 int word_len;
 int max_errors;
 int error;
@@ -54,17 +52,17 @@ void state();
 void quit();
 void exit();
 void rev();
+char* create_string(char* p);
 
 int main(int argc, char* argv[]){
     char *f;
     readStartingInput(argc, argv);
     initUDP();
-    initTCP();
 
     while (1){
         memset(buffer, 0, BUFFERSIZE);
         fgets(buffer, BUFFERSIZE, stdin);
-        f = strtok(buffer, " \n"); //tem de vir de fgets do stdin
+        f = strtok(buffer, " \n"); 
         if (!f){
             continue;
         }
@@ -78,12 +76,15 @@ int main(int argc, char* argv[]){
             guess();
         }
         else if (strcmp(f,"hint") == 0 || strcmp(f,"h") == 0){
+            initTCP();
             hint();
         }
         else if (strcmp(f,"state") == 0 || strcmp(f,"st") == 0){
+            initTCP();
             state();
         }
         else if (strcmp(f,"scoreboard") == 0){
+            initTCP();
             scoreboard();
         }
         else if (strcmp(f,"quit") == 0){
@@ -116,13 +117,11 @@ void start(){
 
     memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "SNG %s\n", splid);
-    printf("SENDING: %s", msg);
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
         cout << "Unable to send from user to server" << endl;
         exit(1); 
     }
-
 
     addrlen=sizeof(addr);
     memset(receiving, '\0', BUFFERSIZE);
@@ -131,8 +130,6 @@ void start(){
         cout << "Unable to receive from server" << endl;
         exit(1);
     }
-
-    printf("RECEIVING: %s", receiving);
 
     sscanf(receiving, "%s", f);
     if (strcmp(f, "RSG")!=0){
@@ -168,7 +165,7 @@ void start(){
 
 }
 
-void play(){    //no server se for letra repetida 
+void play(){   
     ssize_t n;
     int num;
     int hits;
@@ -180,7 +177,6 @@ void play(){    //no server se for letra repetida
 
     memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "PLG %s %s %d\n", plid, letter, attempt+1);
-    printf("SENDING: %s", msg);
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
         cout << "Unable to send from user to server" << endl;
@@ -193,8 +189,6 @@ void play(){    //no server se for letra repetida
         cout << "Unable to receive from server" << endl;
         exit(1);
     }
-
-    printf("RECEIVING: %s", receiving);
 
     f = strtok(receiving, " \n");;
 
@@ -264,7 +258,6 @@ void guess(){
     
     memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "PWG %s %s %d\n", plid, word, attempt+1);
-    printf("SENDING: %s", msg);
 
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
@@ -278,8 +271,6 @@ void guess(){
         cout << "Unable to receive from server" << endl;
         exit(1);
     }
-
-    printf("RECEIVING: %s", receiving);
 
     f = strtok(receiving, " \n");
 
@@ -326,7 +317,7 @@ void guess(){
 
 }
 
-void hint(){        //The Player displays the name and size of the stored file
+void hint(){       
     ssize_t n;
     int num;
     char* ptr;
@@ -343,7 +334,6 @@ void hint(){        //The Player displays the name and size of the stored file
     memset(msg,0,BUFFERSIZE);
     num = sprintf(msg, "GHL %s\n", plid);
  
-    printf("SENDING: %s", msg);
     writeTCP(fdServerTCP, msg, num);
 
     memset(receiving, 0, BUFFERSIZE);
@@ -379,9 +369,10 @@ void hint(){        //The Player displays the name and size of the stored file
 
     bzero(fname, BUFFERSIZE);
     sscanf(receiving, "RHL OK %s %d", fname, &size);
+    printf("RECEIVED FILE: %s\nSIZE: %d\n", fname, size);
+
     FILE *file = fopen(fname, "w");
     n=fwrite(&receiving[offset], 1, total-offset, file);
-
     size-=n;
     while (size>0){
         memset(receiving, 0, BUFFERSIZE);
@@ -397,7 +388,6 @@ void hint(){        //The Player displays the name and size of the stored file
         else 
             fwrite(&receiving[0], 1, total-1, file);
     }
-    
     fclose(file);
     close(fdServerTCP);
 }
@@ -420,7 +410,6 @@ void state(){
     memset(msg,0,BUFFERSIZE);
     num = sprintf(msg, "STA %s\n", plid);
  
-    printf("SENDING: %s", msg);
     writeTCP(fdServerTCP, msg, num);
 
     memset(receiving, 0, BUFFERSIZE);
@@ -430,8 +419,6 @@ void state(){
         ptr += n;
         total += n;
     }
-    printf("total: %d\n",total);
-    printf("receiving: %s\n", receiving);
     for (offset=0; offset<BUFFERSIZE && blank<4; offset++){
         if (receiving[offset]==' '){
             blank++;
@@ -463,11 +450,10 @@ void state(){
         cout << "Wrong return messsage from server to user." << endl;
         exit(1);
     }
-
+    printf("RECEIVED FILE: %s\nSIZE: %d\n", fname, size);
     FILE *file = fopen(fname, "w");
     n=fwrite(&receiving[offset], 1, total-offset-1, file);
     size-=n;
-    printf("%s", &receiving[offset]);
     while (size > 0){
         memset(receiving, 0, BUFFERSIZE);
         total=0;
@@ -483,9 +469,7 @@ void state(){
         else{
             fwrite(&receiving[0], 1, total-1, file);
         }
-        printf("%s", receiving);
     }
-    
     fclose(file);
     close(fdServerTCP);
 }
@@ -499,7 +483,6 @@ void quit(){
 
     memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "QUT %s\n", plid);
-    printf("SENDING: %s", msg);
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
         cout << "Unable to send from user to server" << endl;
@@ -513,8 +496,6 @@ void quit(){
         exit(1);
     }
 
-    printf("RECEIVING: %s", receiving);
-
     sscanf(receiving, "%s", f);
     if (strcmp(f, "RQT")!=0){
         cout << "Wrong return message from server to user" << endl;
@@ -525,22 +506,15 @@ void quit(){
 
     if (strcmp(status, "OK") == 0){
         cout << "You quit" << endl;
-        
     }
     else if (strcmp(status, "NOK") == 0){
         cout << "There wasn't an ongoing Game" << endl;
-        
     }
     else{
         cout << "ERROR" << endl;
-        
+        exit(1);
     }
-
-    /*recebe quit do input
-
-    envia por UDP uma mensagem
-    
-    fecha as conexoes TCP*/
+    return;
 }
 
 void scoreboard(){
@@ -569,9 +543,8 @@ void scoreboard(){
         ptr += n;
         total += n;
     }
-    printf("receiving: %s\n", receiving);
     for (offset=0; offset<BUFFERSIZE && blank<4; offset++){
-        if (receiving[offset]=='\n'){ //empty
+        if (receiving[offset]=='\n'){ 
             blank=4;
         }
         else if (receiving[offset]==' '){
@@ -620,7 +593,6 @@ void scoreboard(){
         }
         printf("%s", receiving);
     }
-    
     fclose(file);
     close(fdServerTCP);
 }
@@ -634,7 +606,6 @@ void exit(){
 
     memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "QUT %s\n", plid);
-    printf("SENDING: %s", msg);
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
         cout << "Unable to send from user to server" << endl;
@@ -647,8 +618,6 @@ void exit(){
         cout << "Unable to receive from server" << endl;
         exit(1);
     }
-
-    printf("RECEIVING: %s", receiving);
 
     sscanf(receiving, "%s", f);
     if (strcmp(f, "RQT")!=0){
@@ -670,11 +639,6 @@ void exit(){
         cout << "ERROR" << endl;
         exit(1); 
     }
-    /*recebe exit do input
-    
-    envia por UDP uma mensagem
-    
-    fecha as conexoes TCP*/
 }
 
 void rev(){
@@ -686,7 +650,6 @@ void rev(){
 
     memset(msg, 0, BUFFERSIZE);
     num = sprintf(msg, "REV %s\n", plid);
-    printf("SENDING: %s", msg);
     n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
     if (n==-1){
         cout << "Unable to send from user to server" << endl;
@@ -700,8 +663,6 @@ void rev(){
         exit(1);
     }
 
-    printf("RECEIVING: %s", receiving);
-
     sscanf(receiving, "%s", f);
     if (strcmp(f, "RRV")!=0){
         cout << "Wrong return message from server to user" << endl;
@@ -711,7 +672,6 @@ void rev(){
     sscanf(receiving, "RRV %s\n", word);
 
     printf("GAME OVER! The word was: %s\n", word);
-
 }
 
 

@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include "utils.h"
 #include <string>
 #include <cstdlib>
 #include <ctime>
@@ -30,11 +29,11 @@ using namespace std;
 
 //Global Variables
 int verbose;
-char *GSport;   //free no fim
+char *GSport;   
 char buffer[BUFFERSIZE];
 char receiving[BUFFERSIZE];
 char sending[BUFFERSIZE];
-char *wfile;    //free no fim
+char *wfile;    
 char *aux_word; 
 char *aux_hint; 
 int lines=0;
@@ -89,6 +88,7 @@ char* get_termination(char* fname);
 bool islastplay(char* plid,char* move);
 char* get_time_string();
 int FindLastGame(char *plid, char *filename);
+int FindTopScores(char* sb_path);
 
 int main(int argc, char *argv[]){
     readInput(argc, argv);
@@ -119,7 +119,8 @@ int main(int argc, char *argv[]){
             n=recvfrom(fdClientUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
             if (n==-1)
                 exit(1);
-            printf("RECEIVING UDP: %s", receiving);
+            if (verbose==1)
+                printf("RECEIVING VIA UDP: %sPORT: %s\n", receiving, GSport);
             op = strtok(receiving, " \n");
             if (strcmp(op, "SNG")==0)
                 start();
@@ -137,11 +138,9 @@ int main(int argc, char *argv[]){
             if((newfd=accept(fdClientTCP,(struct sockaddr*)&addr,&addrlen))==-1)
                 exit(1);
             if ((val=fork())<0){
-                cout << "Creation of a child process was unsuccessful" << endl;
                 exit(1);
             }
             else if(val==0){
-                cout << "Creation of a child process was successful" << endl;
                 TCP_operations(newfd);
             }
             ver = close(newfd);
@@ -168,12 +167,13 @@ void start(){
             cout << "Unable to send from server to user" << endl;
             exit(1); 
         }
+        if (verbose==1)
+            printf("SENDING VIA UDP: %s", sending);
         return;
     }
 
     if (!has_active_game(plid)){
         choose_word();
-        printf("W: %s\n",aux_word);
         max_errors = get_max_errors(aux_word);
         if (max_errors==-1){
             cout << "Invalid word size" << endl;
@@ -205,8 +205,8 @@ void start(){
             free(aux_word);
         }
     }
-
-    printf("SENDING: %s", sending);
+    if (verbose==1)
+        printf("SENDING VIA UDP: %s", sending);
     addrlen=sizeof(addr);
     n = sendto(fdClientUDP, sending, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
@@ -237,6 +237,8 @@ void play(){
             cout << "Unable to send from server to user" << endl;
             exit(1); 
         }
+        if (verbose==1)
+            printf("SENDING VIA UDP: %s", sending);
         return;
     }
 
@@ -252,6 +254,8 @@ void play(){
             cout << "Unable to send from server to user" << endl;
             exit(1); 
         }
+        if (verbose==1)
+            printf("SENDING VIA UDP: %s", sending);
         return;
     }
 
@@ -320,7 +324,8 @@ void play(){
 
     }
     
-    printf("SENDING: %s", sending);
+    if (verbose==1)
+        printf("SENDING VIA UDP: %s", sending);
 
     if (strcmp(status, "WIN")==0) {
         create_finished_game_file(id, 'W');
@@ -361,6 +366,8 @@ void guess(){
             cout << "Unable to send from server to user" << endl;
             exit(1); 
         }
+        if (verbose==1)
+            printf("SENDING VIA UDP: %s", sending);
         return;
     }
     guess = strtok(NULL, " \n");
@@ -374,6 +381,8 @@ void guess(){
             cout << "Unable to send from server to user" << endl;
             exit(1); 
         }
+        if (verbose==1)
+            printf("SENDING VIA UDP: %s", sending);
         return;
     }
 
@@ -426,7 +435,8 @@ void guess(){
     }
     
     num = sprintf(sending, "RWG %s %d\n", status, attempt);
-    printf("SENDING: %s", sending);
+    if (verbose==1)
+        printf("SENDING VIA UDP: %s", sending);
 
     n = sendto(fdClientUDP, sending, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
@@ -444,9 +454,11 @@ void hint(){
     size_t n;
 
     id = strtok(NULL, " \n");
-    if (id==NULL || strlen(id)!=6 || !validPLID(id) || !has_active_game(id)){                     //Invalid id
+    if (id==NULL || strlen(id)!=6 || !validPLID(id) || !has_active_game(id)){                     
         num=sprintf(sending, "RHL ERR\n");
         writeTCP(fdClientTCP, sending, num);
+        if (verbose==1)
+            printf("SENDING VIA TCP: %s", sending);
         return;
     }
 
@@ -458,6 +470,8 @@ void hint(){
     if (file == NULL){
         num = sprintf(sending, "RHL NOK\n");
         writeTCP(fdClientTCP, sending, num);
+        if (verbose==1)
+            printf("SENDING VIA TCP: %s", sending);
         return;
     }
     fseek(file, 0L, SEEK_END);
@@ -465,12 +479,16 @@ void hint(){
         
     num = sprintf(sending, "RHL OK %s %ld ", fname, fsize);
     free(fname);
+    if (verbose==1)
+        printf("SENDING VIA TCP: %s", sending);
     writeTCP(fdClientTCP, sending, num);
     fseek(file, 0L, SEEK_SET);
     while (fsize>0){
         memset(sending, 0, BUFFERSIZE);
         n = fread(sending, 1, BUFFERSIZE, file);
         fsize-=n;
+        if (verbose==1)
+            printf("SENDING VIA TCP: %s", sending);
         writeTCP(fdClientTCP, sending, n);
     }
     memset(&sending[0], '\n', 1);
@@ -495,6 +513,8 @@ void quit_exit(){
             cout << "Unable to send from server to user" << endl;
             exit(1); 
         }
+        if (verbose==1)
+            printf("SENDING VIA UDP: %s", sending);
         return;
     }
     
@@ -506,7 +526,8 @@ void quit_exit(){
         strcpy(status, "NOK");
     }  
     num = sprintf(sending, "RQT %s\n", status);
-    printf("SENDING: %s", buffer);
+    if (verbose==1)
+        printf("SENDING VIA UDP: %s", sending);
     
     n = sendto(fdClientUDP, sending, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
@@ -537,7 +558,8 @@ void rev(){
     char* word = get_word(filename);
 
     num = sprintf(sending, "RRV %s\n", word);
-    printf("SENDING: %s", buffer);
+    if (verbose==1)
+        printf("SENDING VIA UDP: %s", sending);
 
     n = sendto(fdClientUDP, sending, num, 0, (struct sockaddr *) &addr, addrlen);
     if (n==-1){
@@ -546,7 +568,7 @@ void rev(){
     } 
 
     free(word);
-    create_finished_game_file(id, 'F');
+    create_finished_game_file(id, 'Q');
 }
 
 void scoreboard(){
@@ -555,12 +577,15 @@ void scoreboard(){
     long int fsize;
     size_t n;
     
-    char* fname = "TOPSCORES_0015863.txt";         //alterar depois
+    char* fname = (char*)calloc(BUFFERSIZE, sizeof(char));
+    FindTopScores(fname);
     memset(sending, 0, BUFFERSIZE);
 
-    FILE *file = fopen(fname, "r");             //Alterar no fim
+    FILE *file = fopen(fname, "r");            
     if (file == NULL){
-        num = sprintf(sending, "RSB EMPTY\n");                    //alterar
+        num = sprintf(sending, "RSB EMPTY\n");  
+        if (verbose==1)
+            printf("SENDING VIA TCP: %s", sending);                 
         writeTCP(fdClientTCP, sending, num);
         return;
     }
@@ -568,16 +593,22 @@ void scoreboard(){
     fseek(file, 0L, SEEK_END);
     fsize = ftell(file);
 
-    num = sprintf(sending, "RSB OK %s %ld ", fname, fsize);    
+    num = sprintf(sending, "RSB OK %s %ld ", fname, fsize);  
+    if (verbose==1)
+        printf("SENDING VIA TCP: %s", sending);  
     writeTCP(fdClientTCP, sending, num);
     fseek(file, 0L, SEEK_SET);
     while (fsize>0){
         memset(sending, 0, BUFFERSIZE);
         n = fread(sending, 1, BUFFERSIZE, file);
         fsize-=n;
+        if (verbose==1)
+            printf("SENDING VIA TCP: %s", sending);
         writeTCP(fdClientTCP, sending, n);
     }
     memset(&sending[0], '\n', 1);
+    if (verbose==1)
+        printf("SENDING VIA UDP: %s", sending);
     writeTCP(fdClientTCP, sending, 1);
     fclose(file);
 }
@@ -591,27 +622,35 @@ void state(){
     char* id = strtok(NULL, " \n"); 
 
     memset(sending, 0, BUFFERSIZE);
-    if (id==NULL || strlen(id)!=6 || !validPLID(id)){                     //Invalid id
+    if (id==NULL || strlen(id)!=6 || !validPLID(id)){                    
         num=sprintf(sending, "RHL ERR\n");
+        if (verbose==1)
+            printf("SENDING VIA TCP: %s", sending);
         writeTCP(fdClientTCP, sending, num);
         return;
     }                         
-    char* fname = (char*) calloc(BUFFERSIZE, sizeof(char));                //utilizar para enviar nome de ficheiro
+    char* fname = (char*) calloc(BUFFERSIZE, sizeof(char));               
     if (fname==NULL)
         exit(1);
 
     if (has_active_game(id)){
-        num = sprintf(sending, "RST ACT ");   
+        num = sprintf(sending, "RST ACT ");
+        if (verbose==1)
+            printf("SENDING VIA TCP: %s", sending);   
         writeTCP(fdClientTCP, sending, num);
         create_active_state_file(id, fname);
     }
     else if(FindLastGame(id, fname)==1){
-        num = sprintf(sending, "RST FIN ");                  
+        num = sprintf(sending, "RST FIN ");  
+        if (verbose==1)
+            printf("SENDING VIA TCP: %s", sending);                
         writeTCP(fdClientTCP, sending, num);
         create_finished_state_file(id, fname);
     }
     else{
-        num = sprintf(sending, "RST NOK\n");                  
+        num = sprintf(sending, "RST NOK\n"); 
+        if (verbose==1)
+            printf("SENDING VIA TCP: %s", sending);                 
         writeTCP(fdClientTCP, sending, num);
         return;
     }
@@ -624,22 +663,28 @@ void state(){
     fseek(file, 0L, SEEK_END);
     fsize = ftell(file);
 
-    num = sprintf(sending, "%s %ld ", fname, fsize);    
+    num = sprintf(sending, "%s %ld ", fname, fsize); 
+    if (verbose==1)
+        printf("SENDING VIA TCP: %s", sending);   
     writeTCP(fdClientTCP, sending, num);
     fseek(file, 0L, SEEK_SET);
     while (fsize>0){
         memset(sending, 0, BUFFERSIZE);
         n = fread(sending, 1, BUFFERSIZE, file);
         fsize-=n;
+        if (verbose==1)
+            printf("SENDING VIA TCP: %s", sending);
         writeTCP(fdClientTCP, sending, n);
     }
     memset(&sending[0], '\n', 1);
+    if (verbose==1)
+        printf("SENDING VIA TCP: %s", sending);
     writeTCP(fdClientTCP, sending, 1);
     fclose(file);
 }
 
 
-void readInput(int argc, char *argv[]){     //adicionar mais verificações
+void readInput(int argc, char *argv[]){    
     verbose = 0;
     if (argc<2 || argc>5){
         cout << "Wrong number of arguments" << endl;
@@ -681,13 +726,13 @@ void readInput(int argc, char *argv[]){     //adicionar mais verificações
 void initGSUDP(){
     int n;
 
-    fdClientUDP = socket(AF_INET, SOCK_DGRAM, 0); //UDP socket
+    fdClientUDP = socket(AF_INET, SOCK_DGRAM, 0); 
     if(fdClientUDP == -1)
         exit(1);
 
     memset(&hintsClientUDP, 0, sizeof hintsClientUDP);
-    hintsClientUDP.ai_family=AF_INET; // IPv4
-    hintsClientUDP.ai_socktype=SOCK_DGRAM; // UDP socket
+    hintsClientUDP.ai_family=AF_INET; 
+    hintsClientUDP.ai_socktype=SOCK_DGRAM; 
     hintsClientUDP.ai_flags=AI_PASSIVE;
 
     errcode=getaddrinfo(NULL, GSport, &hintsClientUDP, &resClientUDP);
@@ -702,7 +747,7 @@ void initGSUDP(){
 
 void initGSTCP(){
 
-    fdClientTCP = socket(AF_INET, SOCK_STREAM, 0); //TCP socket
+    fdClientTCP = socket(AF_INET, SOCK_STREAM, 0);
     if(fdClientTCP == -1)
         exit(1);
 }
@@ -716,11 +761,11 @@ void connectTCP(){
     hintsClientTCP.ai_flags=AI_PASSIVE;
 
     errcode = getaddrinfo (NULL, GSport, &hintsClientTCP, &resClientTCP);
-    if(errcode!=0) /*error*/ 
+    if(errcode!=0) 
         exit(1);
 
     n = bind(fdClientTCP, resClientTCP->ai_addr, resClientTCP->ai_addrlen);
-    if(n==-1) /*error*/ 
+    if(n==-1) 
         exit(1);
 
     if(listen(fdClientTCP,5) == -1)
@@ -779,14 +824,21 @@ void create_finished_state_file(char *plid, char* filename){
 }
 
 char* get_termination(char* fname){
-    char c[1];
-    sscanf(fname, "%*s_%*s_%c.txt", c);
+    char* termination_3; 
+
+    strtok(fname, " /");
+    strtok(NULL, " /");
+    strtok(NULL, "_");
+    strtok(NULL, "_");
+    termination_3 = strtok(NULL, ".");
+
     char* termination = (char*) calloc(6, sizeof(char));
-    if (termination==NULL)
+    if (termination == NULL)
         exit(1);
-    if (c[1]=='W')
+
+    if (strcmp(termination_3, "W") == 0)
         sprintf(termination, "WIN\n");
-    else if (c[1]=='F')
+    else if (strcmp(termination_3, "F") ==  0)
         sprintf(termination, "FAIL\n");
     else 
         sprintf(termination, "QUIT\n");
@@ -805,7 +857,7 @@ char* get_state_content_string(char *filename){
     if (attempt==0){
         char under[strlen(word)+1];
         memset(under, '-', strlen(word));
-        sprintf(ret, "Game started - no transactions found\n\tSolved so far: %s\n", under);     //atenção barra n
+        sprintf(ret, "Game started - no transactions found\n\tSolved so far: %s\n", under);   
     }
     else {
         int n;
@@ -912,7 +964,7 @@ void create_score_file(char *plid, char *time_str, char* dfilename) {
     free(word);
 }
 
-void create_finished_game_file(char* plid, char code){ //ADD CHAR CODE 
+void create_finished_game_file(char* plid, char code){ 
     char newfilename[50];
     DIR *dir;
     
@@ -953,7 +1005,7 @@ void update_file(char *plid, char *add){
     char filename[BUFFERSIZE];
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
 
-    outfile.open(filename, ios_base::app); // update instead of overwrite
+    outfile.open(filename, ios_base::app); 
     outfile << add; 
     outfile.close();
 }
@@ -975,7 +1027,7 @@ void choose_word(){
 
     ifstream wordfile(wfile);   
     if (!wordfile) {            
-        cout << "No word file was found1" << endl;
+        cout << "No word file was found" << endl;
         exit(1);
     }
     while (e<=val){            
@@ -1030,7 +1082,7 @@ void writeTCP(int fd, char buffer[], ssize_t buffer_len){
         nwritten=write(fd,ptr,nleft);
         if (nwritten==0)
             break;
-        if(nwritten<0)/*error*/{
+        if(nwritten<0){
             exit(1);
         }
         nleft-=nwritten;
@@ -1102,7 +1154,7 @@ bool duplicateplay(char* plid, char *f){
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found2" << endl;
+        cout << "No word file was found" << endl;
         exit(1);
     }
     string tmp;
@@ -1124,7 +1176,7 @@ bool islastplay(char* plid,char* move){
     
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found3" << endl;
+        cout << "No word file was found" << endl;
         exit(1);
     }
     file.seekg(-1, ios_base::end);
@@ -1169,7 +1221,7 @@ char* get_hint(char* filename){
     }
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found4" << endl;
+        cout << "No word file was found" << endl;
         exit(1);
     }
     string tmp;
@@ -1185,7 +1237,7 @@ char* get_word(char* filename){
         exit(1);
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found5" << endl;
+        cout << "No word file was found" << endl;
         exit(1);
     }
     string tmp;
@@ -1297,4 +1349,45 @@ int FindLastGame(char *plid, char *filename)
         free(filelist);
     }
     return found;
+}
+
+int FindTopScores(char* sb_path) {
+    struct dirent **filelist;
+    int n_entries; 
+    char filename[BUFFERSIZE*3];
+    int i=1;
+    char gt[3];
+    char tt[3];
+    char score[4];
+    string tmp;
+    char plid[7];
+    char word[31];
+    
+    sprintf(sb_path, "TOPSCORES_%06d.txt", getppid());
+    FILE* scoreboard = fopen(sb_path, "w");  
+    if (!scoreboard){
+        exit(1);
+    }
+        
+    n_entries = scandir("SCORES/", &filelist, NULL, alphasort);
+    if (n_entries<=0){
+        return 0;
+    }
+    fprintf(scoreboard, "-------------------------------- TOP 10 SCORES --------------------------------\n\n");
+    fprintf(scoreboard, "    SCORE PLAYER     WORD                             GOOD TRIALS  TOTAL TRIALS\n\n");
+    while (i<=10 && n_entries>0) {
+        n_entries--;
+        if(filelist[n_entries]->d_name[0] != '.') {
+            sprintf(filename, "SCORES/%s", filelist[n_entries]->d_name);
+            memset(word, 0, 31);
+            ifstream fp (filename);
+            getline(fp, tmp);
+            sscanf(tmp.c_str(), "%s %s %s %s %s", score, plid, word, gt, tt);
+            fp.close();
+            fprintf(scoreboard, " %d - %s  %s  %s\t\t\t\t\t%s\t\t\t%s\n", i, score, plid, word, gt, tt);
+        }
+        i++;
+    }
+    fclose(scoreboard);
+    return 1;
 }
