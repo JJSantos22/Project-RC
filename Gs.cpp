@@ -383,7 +383,7 @@ void guess(){
 
     get_variables_from_file(id, word, hint, &attempt, &thits, &errors, &max_errors);
 
-    sprintf(move, "T %s", guess);
+    sprintf(move, "G %s", guess);
     if (val==attempt){
         if (islastplay(id, move)){
             if (!compare_word(guess, word))
@@ -757,26 +757,35 @@ void create_score_file(char *plid, char *time_str, char* dfilename) {
 
     get_variables_from_file(plid, word, hint, &attempt, &thits, &errors, &max_errors);
 
-    int iscore=(attempt-errors)/attempt;
+    int succ = (attempt-errors)*100;
+    int score = succ/attempt;
+    printf("score: %d\n", score);
 
-    int n1=iscore%10;
-    int d1=iscore/10;
+    int n1=score%10;
+    int d1=score/10;
     int n2=d1%10;
     int d2=d1/10;
     int n3=d2%10;
 
-    char* time = get_time_string();
+    char sscore[4];
+    sprintf(sscore, "%d%d%d", n3,n2,n1);
 
-    sprintf(filename, "./SCORES/%d%d%d_%s_%s.txt", n3, n2, n1, plid, time);
+    sprintf(filename, "./SCORES/%s_%s_%s.txt", sscore, plid, time_str);
 
-    free(time);
+    free(time_str);
+
+    char buffer[BUFFERSIZE];
+    sprintf(buffer, "%s %s %s %d %d", sscore, plid, word, attempt-errors, attempt);
 
     ofstream outfile (filename);
+    outfile << buffer;
     outfile.close();
 
     char command[BUFFERSIZE];
     sprintf(command, "rm %s", dfilename);
     system(command);
+    free(word);
+    free(hint);
 }
 
 void create_finished_game_file(char* plid, char code){ //ADD CHAR CODE 
@@ -787,11 +796,9 @@ void create_finished_game_file(char* plid, char code){ //ADD CHAR CODE
     char filename[50];
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
 
-    char* time = get_time_string(); //'c' deve ser substituido pelo char code recebido 
+    char* time = get_time_string(); 
    
     sprintf(newfilename, "./GAMES/%s/%s_%c.txt", plid, time, code);
-
-    free(time);
 
     char directory[50];
     sprintf(directory,"./GAMES/%s", plid);
@@ -812,6 +819,7 @@ void create_finished_game_file(char* plid, char code){ //ADD CHAR CODE
     else{
         sprintf(command, "rm %s", filename);
         system(command);
+        free(time);
     }
 
 }
