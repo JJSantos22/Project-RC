@@ -53,6 +53,7 @@ void hint();
 void state();
 void quit();
 void exit();
+void rev();
 
 int main(int argc, char* argv[]){
     char *f;
@@ -90,6 +91,9 @@ int main(int argc, char* argv[]){
         }
         else if (strcmp(f,"exit") == 0){
             exit();
+        }
+        else if (strcmp(f, "rev")==0){
+            rev();
         }
         else {
             cout << "Wrong input format" << endl;
@@ -560,7 +564,6 @@ void scoreboard(){
     char* ptr;
     char f[4];
     char status[6];
-    //char* fdata;
     int blank = 0; 
     int offset;
     int size;
@@ -689,6 +692,43 @@ void exit(){
     envia por UDP uma mensagem
     
     fecha as conexoes TCP*/
+}
+
+void rev(){
+
+    int num;
+    char f[3];
+    ssize_t n;
+    char word[30];
+
+    memset(msg, 0, BUFFERSIZE);
+    num = sprintf(msg, "REV %s\n", plid);
+    printf("SENDING: %s", msg);
+    n = sendto(fdServerUDP, msg, num, 0, (struct sockaddr*)resServerUDP->ai_addr, resServerUDP->ai_addrlen);
+    if (n==-1){
+        cout << "Unable to send from user to server" << endl;
+        exit(1); 
+    }
+
+    memset(receiving, '\0', BUFFERSIZE);
+    n=recvfrom(fdServerUDP, receiving, BUFFERSIZE, 0, (struct sockaddr*)&addr, &addrlen);
+    if (n==-1){
+        cout << "Unable to receive from server" << endl;
+        exit(1);
+    }
+
+    printf("RECEIVING: %s", receiving);
+
+    sscanf(receiving, "%s", f);
+    if (strcmp(f, "RRV")!=0){
+        cout << "Wrong return message from server to user" << endl;
+        exit(1); 
+    }
+
+    sscanf(receiving, "RRV %s\n", word);
+
+    printf("GAME OVER! The word was: %s\n", word);
+
 }
 
 

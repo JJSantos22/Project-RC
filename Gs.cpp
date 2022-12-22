@@ -54,7 +54,8 @@ char* create_string(char* p);
 void initGSUDP();
 void initGSTCP();
 void initDB();
-void create_ongoing_gamefile(char *plid, char *word, char *hint, int thits, int max_errors);
+void connectTCP();
+void create_ongoing_game_file(char *plid, char *word, char *hint, int thits, int max_errors);
 void update_file(char *plid, char *add, char *word, char* hint, int attempt, int thits, int errors, int max_errors);
 void start();
 void play();
@@ -62,6 +63,7 @@ void guess();
 void state();
 void hint();
 void quit_exit();
+void rev();
 void scoreboard();
 bool validPLID(char *string);
 bool validAlpha(char *string, size_t n);
@@ -72,15 +74,17 @@ void writeTCP(int fd, char buffer[], ssize_t buffer_len);
 bool duplicateplay(char* plid, char *f);
 bool compare_word(char* guess, char* word);
 char* get_hint(char* plid);
+char* get_word(char* plid);
 bool has_active_game(char* plid);
 void get_variables_from_file(char* plid, char *word, char* hint, int *attempt, int *thits, int *errors, int *max_errors);
 bool islastplay(char* plid,char* move);
-int findSize(char file_name[]);
 
 int main(int argc, char *argv[]){
     readInput(argc, argv);
+    initDB();
     initGSUDP();
     initGSTCP();
+    connectTCP();
 
     fd_set readfds;
     char* op;
@@ -114,6 +118,8 @@ int main(int argc, char *argv[]){
                 guess();
             else if (strcmp(op, "QUT")==0)
                 quit_exit();
+            else if (strcmp(op, "REV")==0)
+                rev();
         }
         else if (FD_ISSET(fdClientTCP, &readfds)){
             addrlen=sizeof(addr);
@@ -169,7 +175,7 @@ void start(){
         }
         strcpy(status,"OK");
         num = sprintf(sending, "RSG %s %ld %d\n", status, strlen(aux_word), max_errors);
-        create_ongoing_gamefile(plid, aux_word, aux_hint, thits, max_errors);
+        create_ongoing_game_file(plid, aux_word, aux_hint, thits, max_errors);
         free(aux_word);
         free(aux_hint);
     }
@@ -228,6 +234,15 @@ void play(){
     }
 
     id = strtok(NULL, " \n");
+    if (id==NULL || strlen(id)!=6 || !validPLID(id) || !has_active_game(id)){                     //Invalid input format
+        strcpy(sending, "RLG ERR\n");
+        n = sendto(fdClientUDP, sending, 8, 0, (struct sockaddr *) &addr, addrlen);
+        if (n==-1){
+            cout << "Unable to send from server to user" << endl;
+            exit(1); 
+        }
+        return;
+    }
 
     get_variables_from_file(id, word, hint, &attempt, &thits, &errors, &max_errors);
     char* pos = (char*)calloc((strlen(word)*2), sizeof(char));
@@ -333,6 +348,15 @@ void guess(){
     }
 
     id = strtok(NULL, " \n");
+    if (id==NULL || strlen(id)!=6 || !validPLID(id) || !has_active_game(id)){                     //Invalid input format
+        strcpy(sending, "RWG ERR\n");
+        n = sendto(fdClientUDP, sending, 8, 0, (struct sockaddr *) &addr, addrlen);
+        if (n==-1){
+            cout << "Unable to send from server to user" << endl;
+            exit(1); 
+        }
+        return;
+    }
     guess = strtok(NULL, " \n");
     val=atoi(strtok(NULL, " \n"));           
 
@@ -402,9 +426,15 @@ void hint(){
     size_t n;
 
     id = strtok(NULL, " \n");
+    if (id==NULL || strlen(id)!=6 || !validPLID(id) || !has_active_game(id)){                     //Invalid id
+        num=sprintf(sending, "RHL ERR\n");
+        writeTCP(fdClientTCP, sending, num);
+        return;
+    }
+
     char* fname = get_hint(id);
     memset(sending, 0, BUFFERSIZE);
-    FILE *file = fopen("test.jpg", "r");             //Alterar no fim
+    FILE *file = fopen(fname, "r");      
     if (file == NULL){
         num = sprintf(sending, "RHL NOK\n");
         writeTCP(fdClientTCP, sending, num);
@@ -414,6 +444,7 @@ void hint(){
     fsize = ftell(file);
         
     num = sprintf(sending, "RHL OK %s %ld ", fname, fsize);
+    free(fname);
     writeTCP(fdClientTCP, sending, num);
     fseek(file, 0L, SEEK_SET);
     while (fsize>0){
@@ -435,10 +466,7 @@ void quit_exit(){
     char* id;
     int num;
 
-    printf("entrou no quit\n");
-
     id = strtok(NULL, " \n");
-    printf("%s\n", id);
     memset(sending, 0, BUFFERSIZE);
     if (strtok(NULL, " \n")!=NULL){
         strcpy(sending, "RQT ERR\n");
@@ -449,7 +477,6 @@ void quit_exit(){
         }
         return;
     }
-
     
     if (has_active_game(id))
         strcpy(status, "OK");
@@ -466,20 +493,51 @@ void quit_exit(){
     } 
 }
 
+void rev(){
+
+    char* id;
+    int num;
+    ssize_t n;
+
+    id = strtok(NULL, " \n");
+    memset(sending, 0, BUFFERSIZE);
+    if (strtok(NULL, " \n")!=NULL || (!has_active_game(id))){
+        n = sendto(fdClientUDP, sending, strlen(sending), 0, (struct sockaddr *) &addr, addrlen); //VER
+        if (n==-1){
+            cout << "Unable to send from server to user" << endl;
+            exit(1); 
+        }
+        return;
+    }
+
+    char* word = get_word(id);
+
+    num = sprintf(sending, "RRV %s\n", word);
+    printf("SENDING: %s", buffer);
+
+    n = sendto(fdClientUDP, sending, num, 0, (struct sockaddr *) &addr, addrlen);
+    if (n==-1){
+        cout << "Unable to send from server to user" << endl;
+        exit(1); 
+    } 
+
+    free(word);
+    //terminar jogo
+}
+
 
 
 void scoreboard(){
 
     int num;
-    char* id;
     long int fsize;
     size_t n;
-
-    id = strtok(NULL, " \n");
-    char* fname = "TOPSCORES_0015863.txt";
+                                   
+                                   
+    char* fname = "TOPSCORES_0015863.txt";         //alterar depois
     memset(sending, 0, BUFFERSIZE);
 
-    FILE *file = fopen("TOPSCORES_0015863.txt", "r");             //Alterar no fim
+    FILE *file = fopen(fname, "r");             //Alterar no fim
     if (file == NULL){
         num = sprintf(sending, "RSB EMPTY\n");                    //alterar
         writeTCP(fdClientTCP, sending, num);
@@ -488,8 +546,42 @@ void scoreboard(){
 
     fseek(file, 0L, SEEK_END);
     fsize = ftell(file);
-        
-    num = sprintf(sending, "RSB OK %s %ld ", fname, fsize);
+
+    num = sprintf(sending, "RSB OK %s %ld ", fname, fsize);    
+    writeTCP(fdClientTCP, sending, num);
+    fseek(file, 0L, SEEK_SET);
+    while (fsize>0){
+        memset(sending, 0, BUFFERSIZE);
+        n = fread(sending, 1, BUFFERSIZE, file);
+        fsize-=n;
+        writeTCP(fdClientTCP, sending, n);
+    }
+    memset(&sending[0], '\n', 1);
+    writeTCP(fdClientTCP, sending, 1);
+    fclose(file);
+}
+
+void state(){
+
+    int num;
+    long int fsize;
+    size_t n;
+                                   
+                                   
+    char* fname = "TOPSCORES_0015863.txt";
+    memset(sending, 0, BUFFERSIZE);
+
+    FILE *file = fopen(fname, "r");             
+    if (file == NULL){
+        num = sprintf(sending, "RSB EMPTY\n");                    //alterar
+        writeTCP(fdClientTCP, sending, num);
+        return;
+    }
+
+    fseek(file, 0L, SEEK_END);
+    fsize = ftell(file);
+
+    num = sprintf(sending, "RSB OK %s %ld ", fname, fsize);    
     writeTCP(fdClientTCP, sending, num);
     fseek(file, 0L, SEEK_SET);
     while (fsize>0){
@@ -502,58 +594,7 @@ void scoreboard(){
     writeTCP(fdClientTCP, sending, 1);
     fclose(file);
 
-}
-
-void state(){
-
-    /*int num;
-    char* id;
-    long int fsize;
-    size_t n;
-
-    id = strtok(NULL, " \n"); 
-
-    if (!validPLID(id)){
-        printf("Invalid PLID");
-        exit(1);
-    }
-
-    if (has_active_game()
-
-
-    char* fname = get_hint(id);
-    memset(sending, 0, BUFFERSIZE);
-    FILE *file = fopen("test.jpg", "r");             //Alterar no fim
-    if (file == NULL){
-        num = sprintf(sending, "RST NOK\n");
-        writeTCP(fdClientTCP, sending, num);
-        return;
-    }
-      
-     fseek(file, 0, SEEK_END);
-	fsize = ftell(file);
-    printf("hint size: %ld\n", fsize); */
-    /* fseek(file, 0L, SEEK_END);
-    fsize = ftell(file);
-        
-    num = sprintf(sending, "RHL OK %s %ld ", fname, fsize);
-    printf("sending: %s", sending);
-    writeTCP(fdClientTCP, sending, num);
-    fclose(file);
-
-    printf("chegou ao loop\n");
-    file = fopen("test.jpg", "rb"); 
-    while (fsize>0){
-        memset(sending, 0, BUFFERSIZE);
-        n = fread(sending, 1, BUFFERSIZE, file);
-        fsize-=n;
-        writeTCP(fdClientTCP, sending, n);
-        printf("sending: %s\n", sending);
-        printf("bytes: %ld\n", n);
-    }
-    memset(&sending[0], '\n', 1);
-    writeTCP(fdClientTCP, sending, 1);
-    fclose(file); */
+    
 
 }
 
@@ -625,7 +666,12 @@ void initGSTCP(){
     fdClientTCP = socket(AF_INET, SOCK_STREAM, 0); //TCP socket
     if(fdClientTCP == -1)
         exit(1);
-    memset(&hintsClientTCP,0,sizeof hintsClientTCP);            //talvez separar
+}
+
+void connectTCP(){
+    int n;
+
+    memset(&hintsClientTCP,0,sizeof hintsClientTCP);          
     hintsClientTCP.ai_family=AF_INET;
     hintsClientTCP.ai_socktype=SOCK_STREAM;
     hintsClientTCP.ai_flags=AI_PASSIVE;
@@ -640,8 +686,6 @@ void initGSTCP(){
 
     if(listen(fdClientTCP,5) == -1)
         exit(1);
-
-
 }
 
 void initDB(){
@@ -657,9 +701,9 @@ void initDB(){
         closedir(dir);
 }
 
-void create_ongoing_gamefile(char *plid, char *word, char *hint, int thits, int max_errors){
+void create_ongoing_game_file(char *plid, char *word, char *hint, int thits, int max_errors){
     char filename[BUFFERSIZE];
-    sprintf(filename, "GAME_%s.txt", plid);
+    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ofstream outfile (filename);
     char line2[]="0";
     char line3[7];
@@ -668,12 +712,14 @@ void create_ongoing_gamefile(char *plid, char *word, char *hint, int thits, int 
     outfile.close();
 }
 
+void create_score_file(){}
+
 void update_file(char *plid, char *add, char *word, char* hint, int attempt, int thits, int errors, int max_errors){
     ofstream outfile;
     stringstream buff;
     string s;
     char filename[BUFFERSIZE];
-    sprintf(filename, "GAME_%s.txt", plid);
+    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
 
     ifstream sfile (filename);
     buff << sfile.rdbuf();
@@ -833,7 +879,7 @@ bool validPLID(char *string){
 
 bool duplicateplay(char* plid, char *f){
     char filename[BUFFERSIZE];
-    sprintf(filename, "GAME_%s.txt", plid);
+    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ifstream file(filename);
     if (!file) {            
         cout << "No word file was found" << endl;
@@ -854,7 +900,7 @@ bool duplicateplay(char* plid, char *f){
 }
 bool islastplay(char* plid,char* move){
     char filename[BUFFERSIZE];
-    sprintf(filename, "GAME_%s.txt", plid);
+    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     
     ifstream file(filename);
     if (!file) {            
@@ -900,7 +946,7 @@ bool compare_word(char* guess, char* word){
 char* get_hint(char* plid){
     char filename[BUFFERSIZE];
     char* hint = (char*)calloc(BUFFERSIZE, sizeof(char));
-    sprintf(filename, "GAME_%s.txt", plid);
+    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ifstream file(filename);
     if (!file) {            
         cout << "No word file was found" << endl;
@@ -913,9 +959,25 @@ char* get_hint(char* plid){
     return hint;
 }
 
+char* get_word(char* plid){
+    char filename[BUFFERSIZE];
+    char* word = (char*)calloc(BUFFERSIZE, sizeof(char));
+    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
+    ifstream file(filename);
+    if (!file) {            
+        cout << "No word file was found" << endl;
+        exit(1);
+    }
+    string tmp;
+    getline(file, tmp);
+    sscanf(tmp.c_str(), "%s", word);
+    file.close();
+    return word;
+}
+
 bool has_active_game(char* plid){
     char buf[BUFFERSIZE];
-    sprintf(buf, "GAME_%s.txt", plid);
+    sprintf(buf, "./GAMES/GAME_%s.txt", plid);
     ifstream file(buf);
     if (!file)           
         return false;
@@ -925,7 +987,7 @@ bool has_active_game(char* plid){
 
 void get_variables_from_file(char* plid, char *word, char* hint, int *attempt, int *thits, int *errors, int *max_errors){
     char filename[BUFFERSIZE];
-    sprintf(filename, "GAME_%s.txt", plid);
+    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ifstream file(filename);
     if (!file) {            
         cout << "No word file was found" << endl;
