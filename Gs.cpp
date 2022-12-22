@@ -77,13 +77,18 @@ bool compare_word(char* guess, char* word);
 bool has_active_game(char* plid);
 void create_finished_game_file(char* plid, char code);
 void create_score_file(char *plid, char *time_str, char* dfilename);
-char* get_hint(char* plid);
-char* get_word(char* plid);
-int get_thits(char* plid, char* word);
-int get_attempt(char* plid);
-int get_errors(char* plid, char* word);
+void create_active_state_file(char *plid, char* fname);
+void create_finished_state_file(char *plid, char* filename);
+char* get_state_content_string(char* filename);
+char* get_word(char* filename);
+int get_thits(char* filename, char* word);
+char* get_hint(char* filename);
+int get_attempt(char* filename);
+int get_errors(char* filename, char* word);
+char* get_termination(char* fname);
 bool islastplay(char* plid,char* move);
 char* get_time_string();
+int FindLastGame(char *plid, char *filename);
 
 int main(int argc, char *argv[]){
     readInput(argc, argv);
@@ -181,8 +186,9 @@ void start(){
         free(aux_word);
     }
     else{
-        
-        attempt=get_attempt(plid);
+        char filename[BUFFERSIZE];
+        sprintf(filename, "./GAMES/GAME_%s.txt", plid);
+        attempt=get_attempt(filename);
         if (attempt>0){
             strcpy(status,"NOK");
             num = sprintf(sending, "RSG %s\n", status);
@@ -192,7 +198,7 @@ void start(){
             if (aux_word==NULL){
                 exit(1);
             }
-            aux_word=get_word(plid);
+            aux_word=get_word(filename);
             max_errors=get_max_errors(aux_word);
             strcpy(status,"OK");
             num = sprintf(sending, "RSG %s %ld %d\n", status, strlen(aux_word), max_errors);
@@ -222,10 +228,6 @@ void play(){
     int errors;
     int val;
     int max_errors;
-    char *word=(char*) calloc(BUFFERSIZE, sizeof(char));          
-    if (word==NULL){
-        exit(1);
-    }
 
     id = strtok(NULL, " \n");
     if (id==NULL || strlen(id)!=6 || !validPLID(id) || !has_active_game(id)){                     //Invalid input format
@@ -237,13 +239,6 @@ void play(){
         }
         return;
     }
-
-    char* pos = (char*)calloc((strlen(word)*2), sizeof(char));
-    if (pos == NULL){
-        perror("Error: ");
-        exit(1);
-    }
-
 
     letter = strtok(NULL, " \n");
 
@@ -260,13 +255,21 @@ void play(){
         return;
     }
 
-    word=get_word(id);
-    int phits=get_thits(id, word);
-    attempt=get_attempt(id);
-    errors=get_errors(id, word);
+    char filename[BUFFERSIZE];
+    sprintf(filename, "./GAMES/GAME_%s.txt", id);
+    char *word = get_word(filename);
+    int phits=get_thits(filename, word);
+    attempt=get_attempt(filename);
+    errors=get_errors(filename, word);
     thits=strlen(word);
     thits-=phits;
     max_errors=get_max_errors(word);
+
+    char* pos = (char*)calloc((strlen(word)*2), sizeof(char));
+    if (pos == NULL){
+        perror("Error: ");
+        exit(1);
+    }
 
     sprintf(move, "T %c", toupper(letter[0]));
     if (val==attempt){
@@ -346,10 +349,6 @@ void guess(){
     int errors;
     int max_errors;
     char move[BUFFERSIZE];
-    char *word=(char*) calloc(BUFFERSIZE, sizeof(char));           
-    if (word==NULL){
-        exit(1);
-    }
     char *hint=(char*) calloc(BUFFERSIZE, sizeof(char));         
     if (hint==NULL){
         exit(1);
@@ -378,10 +377,12 @@ void guess(){
         return;
     }
 
-    word=get_word(id);
+    char filename[BUFFERSIZE];
+    sprintf(filename, "./GAMES/GAME_%s.txt", id);
+    char *word=get_word(filename);
     max_errors=get_max_errors(word);
-    attempt=get_attempt(id);
-    errors=get_errors(id, word);
+    attempt=get_attempt(filename);
+    errors=get_errors(filename, word);
 
     sprintf(move, "G %s", guess);
     if (val==attempt){
@@ -449,9 +450,11 @@ void hint(){
         return;
     }
 
-    char* fname = get_hint(id);
+    char filename[BUFFERSIZE];
+    sprintf(filename, "./GAMES/GAME_%s.txt", id);
+    char* fname = get_hint(filename);
     memset(sending, 0, BUFFERSIZE);
-    FILE *file = fopen("test.jpg", "r");      
+    FILE *file = fopen(fname, "r");      
     if (file == NULL){
         num = sprintf(sending, "RHL NOK\n");
         writeTCP(fdClientTCP, sending, num);
@@ -529,7 +532,9 @@ void rev(){
         return;
     }
 
-    char* word = get_word(id);
+    char filename[BUFFERSIZE];
+    sprintf(filename, "./GAMES/GAME_%s.txt", id);
+    char* word = get_word(filename);
 
     num = sprintf(sending, "RRV %s\n", word);
     printf("SENDING: %s", buffer);
@@ -583,21 +588,43 @@ void state(){
     long int fsize;
     size_t n;
                                    
-                                   
-    char* fname = "TOPSCORES_0015863.txt";
+    char* id = strtok(NULL, " \n"); 
+
     memset(sending, 0, BUFFERSIZE);
+    if (id==NULL || strlen(id)!=6 || !validPLID(id)){                     //Invalid id
+        num=sprintf(sending, "RHL ERR\n");
+        writeTCP(fdClientTCP, sending, num);
+        return;
+    }                         
+    char* fname = (char*) calloc(BUFFERSIZE, sizeof(char));                //utilizar para enviar nome de ficheiro
+    if (fname==NULL)
+        exit(1);
+
+    if (has_active_game(id)){
+        num = sprintf(sending, "RST ACT ");   
+        writeTCP(fdClientTCP, sending, num);
+        create_active_state_file(id, fname);
+    }
+    else if(FindLastGame(id, fname)==1){
+        num = sprintf(sending, "RST FIN ");                  
+        writeTCP(fdClientTCP, sending, num);
+        create_finished_state_file(id, fname);
+    }
+    else{
+        num = sprintf(sending, "RST NOK\n");                  
+        writeTCP(fdClientTCP, sending, num);
+        return;
+    }
 
     FILE *file = fopen(fname, "r");             
     if (file == NULL){
-        num = sprintf(sending, "RSB EMPTY\n");                    //alterar
-        writeTCP(fdClientTCP, sending, num);
-        return;
+        exit(1);
     }
 
     fseek(file, 0L, SEEK_END);
     fsize = ftell(file);
 
-    num = sprintf(sending, "RSB OK %s %ld ", fname, fsize);    
+    num = sprintf(sending, "%s %ld ", fname, fsize);    
     writeTCP(fdClientTCP, sending, num);
     fseek(file, 0L, SEEK_SET);
     while (fsize>0){
@@ -721,6 +748,114 @@ void create_ongoing_game_file(char *plid, char *word, char *hint){
     outfile.close();
 }
 
+void create_active_state_file(char *plid, char* fname){
+    char filename[BUFFERSIZE];
+    sprintf(filename, "STATE_%s.txt", plid);
+
+    sprintf(fname, "./GAMES/GAME_%s.txt", plid);  
+
+    ofstream file (filename);      
+    char* content = get_state_content_string(fname);
+    file << "\t" << "Active game found for player " << plid << endl << "\t" << content << endl;
+    free(content);
+    file.close();
+}
+
+void create_finished_state_file(char *plid, char* filename){
+    char fname[BUFFERSIZE];
+    sprintf(fname, "STATE_%s.txt", plid); 
+
+    ofstream file (fname);      
+    char* content = get_state_content_string(filename);
+    char*word=get_word(filename);
+    char*hint=get_hint(filename);
+    char*termination=get_termination(filename);
+    file << "\t" << "Last finalized game for player " << plid << endl << "\tWord: " << word << "; Hint file: " << hint << endl << content << "\n\tTermination: " << termination;
+    free(content);
+    free(word);
+    free(hint);
+    free(termination);
+    file.close();
+}
+
+char* get_termination(char* fname){
+    char c[1];
+    sscanf(fname, "%*s_%*s_%c.txt", c);
+    char* termination = (char*) calloc(6, sizeof(char));
+    if (termination==NULL)
+        exit(1);
+    if (c[1]=='W')
+        sprintf(termination, "WIN\n");
+    else if (c[1]=='F')
+        sprintf(termination, "FAIL\n");
+    else 
+        sprintf(termination, "QUIT\n");
+    return termination;
+}
+
+
+char* get_state_content_string(char *filename){
+    int attempt;
+    char* ret=(char*) calloc(BUFFERSIZE*2, sizeof(char));
+    if (ret==NULL)
+        exit(1);
+
+    char* word = get_word(filename);
+    attempt=get_attempt(filename);
+    if (attempt==0){
+        char under[strlen(word)+1];
+        memset(under, '-', strlen(word));
+        sprintf(ret, "Game started - no transactions found\n\tSolved so far: %s\n", under);     //atenção barra n
+    }
+    else {
+        int n;
+        char w[BUFFERSIZE];
+        char* ptr=&ret[0];
+        char under[strlen(word)+1];
+        bzero(under, strlen(word)+1);
+        memset(under, '-', strlen(word));
+        n = sprintf(ret, "\t--- Transactions found: %d ---\n", attempt);
+        ptr+=n;
+        ifstream file(filename);
+        int hit;
+        string tmp;
+        getline(file, tmp);
+        while (getline(file, tmp)){
+            if (tmp.c_str()[0] == 'T' ){
+                n=sprintf(ptr, "\tLetter trial: %c - ", tmp.c_str()[2]);
+                ptr+=n;
+                hit=0;
+                for (size_t i=0; i<strlen(word); i++){
+                    if (toupper(word[i]) == toupper(tmp.c_str()[2])){
+                        under[i]=tmp.c_str()[2];    
+                        hit++;    
+                    }
+                }
+                if (hit>0){
+                    n=sprintf(ptr, "TRUE\n");
+                    ptr+=n;
+                }   
+                else {
+                    n=sprintf(ptr, "FALSE\n");
+                    ptr+=n;
+                }
+            }
+            else{
+                bzero(w, BUFFERSIZE);
+                sscanf(tmp.c_str(), "%*c %s", w);
+                if (strcmp(w, word)==0){
+                    strcpy(under, word);
+                }
+                n=sprintf(ptr, "\tWord guessed: %s\n", w);
+                ptr+=n;
+            }
+        }
+        sprintf(ptr, "\tSolved so far: %s", under);
+        file.close();
+    }
+    return ret;
+}
+
 char* get_time_string(){
     time_t now = time(0);
     tm *ltm = localtime(&now);
@@ -740,15 +875,13 @@ char* get_time_string(){
 }
 
 void create_score_file(char *plid, char *time_str, char* dfilename) {
-    char filename[50];
-    char *word=(char*) calloc(BUFFERSIZE, sizeof(char));
-    if (word==NULL)
-        exit(1);
     int attempt, errors;
-
-    word = get_word(plid);
-    attempt = get_attempt(plid);
-    errors = get_errors(plid, word);
+    
+    char filename[BUFFERSIZE];
+    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
+    char* word = get_word(filename);
+    attempt = get_attempt(filename);
+    errors = get_errors(filename, word);
 
     int succ = (attempt-errors)*100;
     int score = succ/attempt;
@@ -842,7 +975,7 @@ void choose_word(){
 
     ifstream wordfile(wfile);   
     if (!wordfile) {            
-        cout << "No word file was found" << endl;
+        cout << "No word file was found1" << endl;
         exit(1);
     }
     while (e<=val){            
@@ -969,7 +1102,7 @@ bool duplicateplay(char* plid, char *f){
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found" << endl;
+        cout << "No word file was found2" << endl;
         exit(1);
     }
     string tmp;
@@ -991,7 +1124,7 @@ bool islastplay(char* plid,char* move){
     
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found" << endl;
+        cout << "No word file was found3" << endl;
         exit(1);
     }
     file.seekg(-1, ios_base::end);
@@ -1029,13 +1162,14 @@ bool compare_word(char* guess, char* word){
     return true;
 }
 
-char* get_hint(char* plid){
-    char filename[BUFFERSIZE];
+char* get_hint(char* filename){
     char* hint = (char*)calloc(BUFFERSIZE, sizeof(char));
-    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
+    if (hint==NULL){
+        exit(1);
+    }
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found" << endl;
+        cout << "No word file was found4" << endl;
         exit(1);
     }
     string tmp;
@@ -1045,13 +1179,13 @@ char* get_hint(char* plid){
     return hint;
 }
 
-char* get_word(char* plid){
-    char filename[BUFFERSIZE];
+char* get_word(char* filename){
     char* word = (char*)calloc(BUFFERSIZE, sizeof(char));
-    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
+    if (word==NULL)
+        exit(1);
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found" << endl;
+        cout << "No word file was found5" << endl;
         exit(1);
     }
     string tmp;
@@ -1071,12 +1205,10 @@ bool has_active_game(char* plid){
     return true;
 }
 
-int get_thits(char* plid, char* word){
-    char filename[BUFFERSIZE];
-    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
+int get_thits(char* filename, char* word){
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found" << endl;
+        cout << "No word file was found6" << endl;
         exit(1);
     }
     string tmp;
@@ -1094,9 +1226,7 @@ int get_thits(char* plid, char* word){
     return hit;
 }
 
-int get_attempt(char* plid){
-    char filename[BUFFERSIZE];
-    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
+int get_attempt(char* filename){
     ifstream file(filename);
     if (!file) {            
         cout << "No word file was found" << endl;
@@ -1111,9 +1241,7 @@ int get_attempt(char* plid){
     return count-1;
 }
 
-int get_errors(char* plid, char* word){
-    char filename[BUFFERSIZE];
-    sprintf(filename, "./GAMES/GAME_%s.txt", plid);
+int get_errors(char* filename, char* word){
     ifstream file(filename);
     if (!file) {            
         cout << "No word file was found" << endl;
@@ -1143,4 +1271,32 @@ int get_errors(char* plid, char* word){
     }
     file.close();
     return errors;
+}
+
+int FindLastGame(char *plid, char *filename)
+{
+    struct dirent **filelist;
+    int n_entries;
+    char dirname [20];
+    sprintf(dirname , "GAMES/%s/", plid) ;
+    n_entries = scandir(dirname, &filelist, 0, alphasort);
+    int found=0;
+
+    if(n_entries <= 0) 
+        return 0;
+    else{
+        while(n_entries--){
+            if(filelist[n_entries] -> d_name[0]!= '.'){
+                sprintf(filename, "GAMES/%s/%s", plid, filelist[n_entries] -> d_name);
+                found=1;
+                cout << "last game found: " << filename;
+            }
+            free(filelist[n_entries]);
+            if(found==1) 
+                break;
+        }
+        free(filelist);
+    }
+
+    return found;
 }
