@@ -460,7 +460,6 @@ void state(){
         cout << "Wrong return messsage from server to user." << endl;
         exit(1);
     }
-    
 
     bzero(fname, BUFFERSIZE);
     FILE *file = fopen(fname, "w");
