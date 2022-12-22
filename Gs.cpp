@@ -1289,7 +1289,6 @@ int FindLastGame(char *plid, char *filename)
             if(filelist[n_entries] -> d_name[0]!= '.'){
                 sprintf(filename, "GAMES/%s/%s", plid, filelist[n_entries] -> d_name);
                 found=1;
-                cout << "last game found: " << filename;
             }
             free(filelist[n_entries]);
             if(found==1) 
@@ -1297,6 +1296,5 @@ int FindLastGame(char *plid, char *filename)
         }
         free(filelist);
     }
-
     return found;
 }

@@ -367,6 +367,7 @@ void hint(){        //The Player displays the name and size of the stored file
 
     bzero(status, 6);
     sscanf(receiving, "RHL %s", status);
+
     if (strcmp(status, "NOK") == 0){
         cout << "Something went wrong." << endl; 
         return;
@@ -379,9 +380,9 @@ void hint(){        //The Player displays the name and size of the stored file
     bzero(fname, BUFFERSIZE);
     sscanf(receiving, "RHL OK %s %d", fname, &size);
     FILE *file = fopen(fname, "w");
-    fwrite(&receiving[offset], 1, BUFFERSIZE-offset, file);
+    n=fwrite(&receiving[offset], 1, total-offset, file);
 
-    size-=(BUFFERSIZE-offset);//descobrir se é com -1 ou não
+    size-=n;
     while (size>0){
         memset(receiving, 0, BUFFERSIZE);
         total=0;
@@ -391,7 +392,7 @@ void hint(){        //The Player displays the name and size of the stored file
             total += n;
         }
         size-=total;
-        if (total==BUFFERSIZE)          //talvez modificar
+        if (total==BUFFERSIZE)         
             fwrite(&receiving[0], 1, total, file);
         else 
             fwrite(&receiving[0], 1, total-1, file);
@@ -429,12 +430,14 @@ void state(){
         ptr += n;
         total += n;
     }
+    printf("total: %d\n",total);
     printf("receiving: %s\n", receiving);
     for (offset=0; offset<BUFFERSIZE && blank<4; offset++){
         if (receiving[offset]==' '){
             blank++;
         }
     }
+
     bzero(f, 4);
     sscanf(receiving, "%s", f);
     if (strcmp(f, "RST") != 0){
@@ -444,7 +447,7 @@ void state(){
 
     bzero(status, 4);
     sscanf(receiving, "RST %s", status);
-
+    bzero(fname, BUFFERSIZE);
     if (strcmp(status, "NOK") == 0){
         cout << "No games(active or finished) for this player." << endl; 
         close(fdServerTCP);
@@ -461,11 +464,9 @@ void state(){
         exit(1);
     }
 
-    bzero(fname, BUFFERSIZE);
     FILE *file = fopen(fname, "w");
-    fwrite(&receiving[offset], 1, BUFFERSIZE-offset, file);
-
-    size-=(BUFFERSIZE-offset-1);
+    n=fwrite(&receiving[offset], 1, total-offset-1, file);
+    size-=n;
     printf("%s", &receiving[offset]);
     while (size > 0){
         memset(receiving, 0, BUFFERSIZE);
@@ -487,12 +488,6 @@ void state(){
     
     fclose(file);
     close(fdServerTCP);
-    /*recebe state ou st do input
-    
-    estabelece uma conexao TCP
-
-    envia 
-    */
 }
 
 void quit(){
@@ -604,9 +599,9 @@ void scoreboard(){
     bzero(fname, BUFFERSIZE);
     sscanf(receiving, "RSB OK %s %d", fname, &size);
     FILE *file = fopen(fname, "w");
-    fwrite(&receiving[offset], 1, BUFFERSIZE-offset, file);
+    n=fwrite(&receiving[offset], 1, total-offset, file);
     
-    size-=(BUFFERSIZE-offset-1);
+    size-=n;
     printf("%s", &receiving[offset]);
     while (size>0){
         memset(receiving, 0, BUFFERSIZE);
