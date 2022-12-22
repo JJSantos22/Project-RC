@@ -168,7 +168,6 @@ void start(){
 
     if (!has_active_game(plid)){
         choose_word();
-        printf("main: %s\n", aux_hint);
         printf("W: %s\n",aux_word);
         thits = strlen(aux_word); 
         max_errors = get_max_errors(aux_word);
@@ -607,9 +606,6 @@ void state(){
     memset(&sending[0], '\n', 1);
     writeTCP(fdClientTCP, sending, 1);
     fclose(file);
-
-    
-
 }
 
 
@@ -759,7 +755,6 @@ void create_score_file(char *plid, char *time_str, char* dfilename) {
 
     int succ = (attempt-errors)*100;
     int score = succ/attempt;
-    printf("score: %d\n", score);
 
     int n1=score%10;
     int d1=score/10;
@@ -792,7 +787,6 @@ void create_finished_game_file(char* plid, char code){ //ADD CHAR CODE
     char newfilename[50];
     DIR *dir;
     
-    //OLD NAME
     char filename[50];
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
 
@@ -867,7 +861,7 @@ void choose_word(){
 
     ifstream wordfile(wfile);   
     if (!wordfile) {            
-        cout << "No word file was found wordc" << endl;
+        cout << "No word file was found" << endl;
         exit(1);
     }
     while (e<=val){            
@@ -919,14 +913,11 @@ void writeTCP(int fd, char buffer[], ssize_t buffer_len){
         if (nwritten==0)
             break;
         if(nwritten<0)/*error*/{
-            printf("FDS\n");
             exit(1);
         }
         nleft-=nwritten;
         ptr+=nwritten;
-        printf("nwritten: %ld\n", nwritten);
     }
-    printf("SENDING TCP: %s", buffer);
 }
 
 void TCP_operations(int fd){
@@ -993,7 +984,7 @@ bool duplicateplay(char* plid, char *f){
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found dup" << endl;
+        cout << "No word file was found" << endl;
         exit(1);
     }
     string tmp;
@@ -1015,7 +1006,7 @@ bool islastplay(char* plid,char* move){
     
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found last" << endl;
+        cout << "No word file was found" << endl;
         exit(1);
     }
     file.seekg(-1, ios_base::end);
@@ -1034,7 +1025,6 @@ bool islastplay(char* plid,char* move){
     }
     string tmp;
     getline(file, tmp);
-    printf("last: %s\n", tmp.c_str());
     for (size_t i=0; i<strlen(move); i++) 
         move[0]=toupper(move[0]);
     transform(tmp.begin(), tmp.end(), tmp.begin(), ::toupper);
@@ -1060,7 +1050,7 @@ char* get_hint(char* plid){
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found hint" << endl;
+        cout << "No word file was found" << endl;
         exit(1);
     }
     string tmp;
@@ -1076,7 +1066,7 @@ char* get_word(char* plid){
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found word" << endl;
+        cout << "No word file was found" << endl;
         exit(1);
     }
     string tmp;
@@ -1101,7 +1091,7 @@ void get_variables_from_file(char* plid, char *word, char* hint, int *attempt, i
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ifstream file(filename);
     if (!file) {            
-        cout << "No word file was found var" << endl;
+        cout << "No word file was found" << endl;
         exit(1);
     }
     string tmp;

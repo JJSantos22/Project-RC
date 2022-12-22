@@ -364,7 +364,6 @@ void hint(){        //The Player displays the name and size of the stored file
         cout << "Wrong return message from server to user" << endl;
         exit(1);
     }
-    printf("f: %s\n", f);
 
     bzero(status, 6);
     sscanf(receiving, "RHL %s", status);
@@ -376,11 +375,9 @@ void hint(){        //The Player displays the name and size of the stored file
         cout << "Wrong return messsage from server to user." << endl;
         exit(1);
     }
-    printf("status: %s\n", status);
 
     bzero(fname, BUFFERSIZE);
     sscanf(receiving, "RHL OK %s %d", fname, &size);
-    printf("fname: %s\nsize: %d\n", fname, size);
     FILE *file = fopen(fname, "w");
     fwrite(&receiving[offset], 1, BUFFERSIZE-offset, file);
 
@@ -464,7 +461,6 @@ void state(){
         return;
     }
     else if (strcmp(status,"ACT") != 0 && strcmp(status,"FIN") != 0){
-        //Algo correu mal
         cout << "Wrong return messsage from server to user." << endl;
         exit(1);
     }
@@ -598,7 +594,6 @@ void scoreboard(){
         cout << "Wrong return message from server to user" << endl;
         exit(1);
     }
-    printf("f: %s\n", f);
 
     bzero(status, 6);
     sscanf(receiving, "RSB %s", status);
@@ -610,11 +605,9 @@ void scoreboard(){
         cout << "Wrong return messsage from server to user." << endl;
         exit(1);
     }
-    printf("status: %s\n", status);
     
     bzero(fname, BUFFERSIZE);
     sscanf(receiving, "RSB OK %s %d", fname, &size);
-    printf("fname: %s\nsize: %d\n", fname, size);
     FILE *file = fopen(fname, "w");
     fwrite(&receiving[offset], 1, BUFFERSIZE-offset, file);
     
