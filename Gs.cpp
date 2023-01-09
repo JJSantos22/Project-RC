@@ -443,7 +443,7 @@ void guess(){
         cout << "Unable to send from server to user" << endl;
         exit(1); 
     }
-
+    
     free(word);
 }
 
