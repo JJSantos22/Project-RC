@@ -48,44 +48,44 @@ socklen_t addrlen;
 struct sockaddr_in addr;
 
 void readInput(int argc, char *argv[]);
-void TCP_operations(int newfd);
-char* create_string(char* p);
 void initGSUDP();
 void initGSTCP();
 void initDB();
 void connectTCP();
-void create_ongoing_game_file(char *plid, char *word, char *hint);
-void update_file(char *plid, char *add);
+void TCP_operations(int newfd);
+void writeTCP(int fd, char buffer[], ssize_t buffer_len);
 void start();
 void play();
 void guess();
 void state();
 void hint();
+void scoreboard();
 void quit_exit();
 void rev();
-void scoreboard();
-bool validPLID(char *string);
-bool validAlpha(char *string, size_t n);
-int get_max_errors(char* word);
-void choose_word();
-int letter_in_word(char* word, char letter, char* pos, int word_len);
-void writeTCP(int fd, char buffer[], ssize_t buffer_len);
-bool duplicateplay(char* plid, char *f);
-bool compare_word(char* guess, char* word);
-bool has_active_game(char* plid);
+char* create_string(char* p);
+void create_ongoing_game_file(char *plid, char *word, char *hint);
 void create_finished_game_file(char* plid, char code);
 void create_score_file(char *plid, char *time_str, char* dfilename);
 void create_active_state_file(char *plid, char* fname);
 void create_finished_state_file(char *plid, char* filename);
+void update_file(char *plid, char *add);
 char* get_state_content_string(char* filename);
+int get_max_errors(char* word);
 char* get_word(char* filename);
 int get_thits(char* filename, char* word);
 char* get_hint(char* filename);
 int get_attempt(char* filename);
 int get_errors(char* filename, char* word);
 char* get_termination(char* fname);
-bool islastplay(char* plid,char* move);
 char* get_time_string();
+void choose_word();
+int letter_in_word(char* word, char letter, char* pos, int word_len);
+bool has_active_game(char* plid);
+bool isduplicateplay(char* plid, char *f);
+bool compare_word(char* guess, char* word);
+bool islastplay(char* plid,char* move);
+bool validAlpha(char *string, size_t n);
+bool validPLID(char *string);
 int FindLastGame(char *plid, char *filename);
 int FindTopScores(char* sb_path);
 
@@ -290,7 +290,7 @@ void play(){
         strcpy(status,"INV");
         num = sprintf(sending, "RLG %s %d\n", status, attempt);
     }
-    else if (duplicateplay(id, move)){
+    else if (isduplicateplay(id, move)){
         strcpy(status, "DUP");
         num = sprintf(sending, "RLG %s %d\n", status, attempt);
     }
@@ -403,7 +403,7 @@ void guess(){
     }
     else if (val!=attempt+1)
         strcpy(status,"INV");
-    else if (duplicateplay(id, move)){
+    else if (isduplicateplay(id, move)){
         strcpy(status, "DUP");
         num = sprintf(sending, "RLG %s %d\n", status, attempt);
     }
@@ -1148,7 +1148,7 @@ bool validPLID(char *string){
     return false;
 }
 
-bool duplicateplay(char* plid, char *f){
+bool isduplicateplay(char* plid, char *f){
     char filename[BUFFERSIZE];
     sprintf(filename, "./GAMES/GAME_%s.txt", plid);
     ifstream file(filename);

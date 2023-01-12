@@ -36,7 +36,7 @@ char *l;
 struct timeval t;
 struct addrinfo hintsServerTCP,*resServerTCP;
 struct addrinfo hintsServerUDP,*resServerUDP;
-int fdServerUDP,errcode, fdServerTCP;
+int fdServerUDP, errcode, fdServerTCP;
 
 void readStartingInput(int argc, char* argv[]);
 void initUDP();
