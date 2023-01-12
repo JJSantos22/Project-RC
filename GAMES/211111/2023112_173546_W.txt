@@ -1,0 +1,12 @@
+decarbonization PV_Panel.jpg
+T a
+T b
+T d
+T y
+T c
+T v
+T e
+T m
+T x
+T t
+G decarbonization

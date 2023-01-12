@@ -18,7 +18,6 @@
 #include <cstring>
 #include <bits/stdc++.h>
 #include <algorithm>
-#include <map>
 
 
 using namespace std;
@@ -1373,8 +1372,8 @@ int FindTopScores(char* sb_path) {
     if (n_entries<=0){
         return 0;
     }
-    fprintf(scoreboard, "-------------------------------- TOP 10 SCORES --------------------------------\n\n");
-    fprintf(scoreboard, "    SCORE PLAYER     WORD                             GOOD TRIALS  TOTAL TRIALS\n\n");
+    fprintf(scoreboard, "------------------------------- TOP 10 SCORES -------------------------------\n\n");
+    fprintf(scoreboard, "    SCORE PLAYER\tWORD\t\t\t\t\t\t\tGOOD TRIALS\tTOTAL TRIALS\n\n");
     while (i<=10 && n_entries>0) {
         n_entries--;
         if(filelist[n_entries]->d_name[0] != '.') {
@@ -1384,10 +1383,30 @@ int FindTopScores(char* sb_path) {
             getline(fp, tmp);
             sscanf(tmp.c_str(), "%s %s %s %s %s", score, plid, word, gt, tt);
             fp.close();
-            fprintf(scoreboard, " %d - %s  %s  %s\t\t\t\t\t%s\t\t\t%s\n", i, score, plid, word, gt, tt);
+            if (i==10)
+                fprintf(scoreboard, "%d", i);
+            else 
+                fprintf(scoreboard, " %d", i);
+            if (strlen(word)<6)
+                fprintf(scoreboard, " - %s  %s  %s\t\t\t\t\t\t\t\t\t%s\t\t\t%s\n", score, plid, word, gt, tt);
+            else if (strlen(word)<10)
+                fprintf(scoreboard, " - %s  %s  %s\t\t\t\t\t\t\t\t%s\t\t\t%s\n", score, plid, word, gt, tt);
+            else if (strlen(word)<14)
+                fprintf(scoreboard, " - %s  %s  %s\t\t\t\t\t\t\t%s\t\t\t%s\n", score, plid, word, gt, tt);
+            else if (strlen(word)<18)
+                fprintf(scoreboard, " - %s  %s  %s\t\t\t\t\t\t%s\t\t\t%s\n", score, plid, word, gt, tt);
+            else if (strlen(word)<22)
+                fprintf(scoreboard, " - %s  %s  %s\t\t\t\t\t%s\t\t\t%s\n", score, plid, word, gt, tt);
+            else if (strlen(word)<26)
+                fprintf(scoreboard, " - %s  %s  %s\t\t\t\t%s\t\t\t%s\n", score, plid, word, gt, tt);
+            else if (strlen(word)<30)
+                fprintf(scoreboard, " - %s  %s  %s\t\t\t%s\t\t\t%s\n", score, plid, word, gt, tt);
+            else
+                fprintf(scoreboard, " - %s  %s  %s\t\t%s\t\t\t%s\n", score, plid, word, gt, tt);
         }
         i++;
     }
     fclose(scoreboard);
     return 1;
 }
+            

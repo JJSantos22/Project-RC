@@ -205,7 +205,7 @@ void play(){
         return;
     }     
     else if (strcmp(status, "DUP")==0){
-        printf("JOGADA DUPLICADA\n");
+        printf("Duplicate play\n");
         return; 
     }
 
@@ -242,6 +242,10 @@ void play(){
 
     while (hits > 0){
         value = strtok(NULL, " \n");
+        if (atoi(value) > word_len){
+            printf("Invalid position in word received from server\n");
+            break;
+        }
         l[2*(atoi(value)-1)] = toupper(letter[0]);
         hits--;
     }
@@ -286,7 +290,7 @@ void guess(){
         return;
     } 
     else if (strcmp(status, "DUP")==0){
-        printf("JOGADA DUPLICADA\n");
+        printf("Duplicate play\n");
         return; 
     }
     
@@ -378,15 +382,17 @@ void hint(){
         memset(receiving, 0, BUFFERSIZE);
         total=0;
         ptr=&receiving[0];
-        while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))>0){
+        int val=min(size,BUFFERSIZE);
+        while ((n=read(fdServerTCP, ptr, val-total))>0){
             ptr += n;
             total += n;
         }
-        size-=total;
-        if (total==BUFFERSIZE)         
-            fwrite(&receiving[0], 1, total, file);
-        else 
-            fwrite(&receiving[0], 1, total-1, file);
+        size-=total;        
+        fwrite(&receiving[0], 1, total, file);
+    }
+    while ((n=(read(fdServerTCP, ptr, 1)))!=1){
+        if (n<0)
+            exit(1);
     }
     fclose(file);
     close(fdServerTCP);
@@ -428,7 +434,7 @@ void state(){
     bzero(f, 4);
     sscanf(receiving, "%s", f);
     if (strcmp(f, "RST") != 0){
-        cout << " Wrong return message from server to user" << endl;
+        cout << "Wrong return message from server to user" << endl;
         exit(1);
     }
 
@@ -446,6 +452,11 @@ void state(){
     else if(strcmp(status,"FIN") == 0){
         sscanf(receiving, "RST FIN %s %d", fname, &size);
     }
+    else if(strcmp(status,"ERR") == 0){
+        printf("ERROR WITH COMMAND\n");
+        close(fdServerTCP);
+        return;
+    }
     else{
         cout << "Wrong return messsage from server to user." << endl;
         exit(1);
@@ -458,17 +469,17 @@ void state(){
         memset(receiving, 0, BUFFERSIZE);
         total=0;
         ptr=&receiving[0];
-        while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))>0){
+        int val=min(size,BUFFERSIZE);
+        while ((n=read(fdServerTCP, ptr, val-total))>0){
             ptr += n;
             total += n;
         }
         size-=total;
-        if (total==BUFFERSIZE){
-            fwrite(&receiving[0], 1, total, file);
-        }
-        else{
-            fwrite(&receiving[0], 1, total-1, file);
-        }
+        fwrite(&receiving[0], 1, total, file);
+    }
+    while ((n=(read(fdServerTCP, ptr, 1)))!=1){
+        if (n<0)
+            exit(1);
     }
     fclose(file);
     close(fdServerTCP);
@@ -510,8 +521,12 @@ void quit(){
     else if (strcmp(status, "NOK") == 0){
         cout << "There wasn't an ongoing Game" << endl;
     }
+    else if(strcmp(status,"ERR") == 0){
+        printf("ERROR WITH COMMAND\n");
+        return;
+    }
     else{
-        cout << "ERROR" << endl;
+        cout << "Wrong return message from server to user" << endl;
         exit(1);
     }
     return;
@@ -580,18 +595,18 @@ void scoreboard(){
         memset(receiving, 0, BUFFERSIZE);
         total=0;
         ptr=&receiving[0];
-        while ((n=read(fdServerTCP, ptr, BUFFERSIZE-total))>0){
+        int val=min(size,BUFFERSIZE);
+        while ((n=read(fdServerTCP, ptr, val-total))>0){
             ptr += n;
             total += n;
         }
         size-=total;
-        if (total==BUFFERSIZE){
-            fwrite(&receiving[0], 1, total, file);
-        }
-        else {
-            fwrite(&receiving[0], 1, total-1, file);
-        }
+        fwrite(&receiving[0], 1, total, file);
         printf("%s", receiving);
+    }
+    while ((n=(read(fdServerTCP, ptr, 1)))!=1){
+        if (n<0)
+            exit(1);
     }
     fclose(file);
     close(fdServerTCP);
@@ -635,8 +650,12 @@ void exit(){
         cout << "There wasn't an ongoing Game but .. BYE" << endl;
         exit(1); 
     }
+    else if(strcmp(status,"ERR") == 0){
+        printf("ERROR WITH COMMAND\n");
+        return;
+    }
     else{
-        cout << "ERROR" << endl;
+        cout << "Wrong return message from server to user" << endl;
         exit(1); 
     }
 }
