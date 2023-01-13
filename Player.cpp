@@ -201,7 +201,7 @@ void play(){
 
 
     if (strcmp(status, "ERR")==0){
-        printf("ERROR WITH COMMAND\n");
+        printf("There has been an error\n");
         return;
     }     
     else if (strcmp(status, "DUP")==0){
@@ -286,7 +286,7 @@ void guess(){
     status = strtok(NULL, " \n");
 
     if (strcmp(status, "ERR")==0){
-        printf("ERROR WITH COMMAND\n");
+        printf("There has been an error\n");
         return;
     } 
     else if (strcmp(status, "DUP")==0){
@@ -453,7 +453,7 @@ void state(){
         sscanf(receiving, "RST FIN %s %d", fname, &size);
     }
     else if(strcmp(status,"ERR") == 0){
-        printf("ERROR WITH COMMAND\n");
+        printf("There has been an error\n");
         close(fdServerTCP);
         return;
     }
@@ -522,7 +522,7 @@ void quit(){
         cout << "There wasn't an ongoing Game" << endl;
     }
     else if(strcmp(status,"ERR") == 0){
-        printf("ERROR WITH COMMAND\n");
+        printf("There has been an error\n");
         return;
     }
     else{
@@ -651,7 +651,7 @@ void exit(){
         exit(1); 
     }
     else if(strcmp(status,"ERR") == 0){
-        printf("ERROR WITH COMMAND\n");
+        printf("There has been an error\n");
         return;
     }
     else{
