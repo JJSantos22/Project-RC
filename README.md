@@ -1,7 +1,9 @@
 # projRC
 
 Projeto de Redes de Computadores 2022/2023
-Estão presentes na directoria do projeto os ficheiros de código coreespondentes ao Servidor GS e Cliente Player.
+
+
+Estão presentes na directoria do projeto os ficheiros de código correspondentes ao Servidor GS e Cliente Player.
 
 
 
